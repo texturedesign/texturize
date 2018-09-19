@@ -15,10 +15,8 @@ r"""                         _   _
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 #
 
-# Built-in Python Modules
 import argparse
 
-# Image & Array Manipulation
 import PIL.Image
 
 from .models import processor, translator
@@ -68,26 +66,28 @@ class Application:
         self.translator = translator.Translator()
         self.processor = processor.Processor()
 
-    def process(self, filename):
-        image = PIL.Image.open(filename).convert(mode='RGB')
+    def repair(self, args):
+        image = PIL.Image.open(args.image).convert(mode='RGB')
 
         ze0 = self.translator.encode(image)
         ze1 = self.processor.downscale(ze0)
         zd0 = self.processor.upscale(ze1)
         output = self.translator.decode(zd0)
 
-        output.save(filename+'_.png')
+        output.save(args.image+'_.png')
 
 
 def main():
-    parser = argparse.ArgumentParser(prog='imagen',
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    add_arg = parser.add_argument
-    add_arg('--content', type=str, required=True, help='Input image as reference.')
-    args = parser.parse_args()
-
     app = Application()
-    app.process(args.content)
+    parser = argparse.ArgumentParser(prog='imagen')
+    subparsers = parser.add_subparsers()
+
+    parse_repro = subparsers.add_parser('repair')
+    parse_repro.add_argument('image', type=str, help='Filename of input image.')
+    parse_repro.set_defaults(func=app.repair)
+
+    args = parser.parse_args()
+    args.func(args)
 
 
 if __name__ == "__main__":
