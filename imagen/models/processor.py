@@ -11,7 +11,7 @@ class Processor(torch.nn.Module):
     def __init__(self, pretrained=True):
         super(Processor, self).__init__()
 
-        self.downscale = torch.nn.Sequential(
+        self.downscaler = torch.nn.Sequential(
             torch.nn.ReflectionPad2d(1),
             torch.nn.Conv2d(64, 48, kernel_size=(3, 3), stride=(1, 1)),
             torch.nn.SELU(),
@@ -25,9 +25,14 @@ class Processor(torch.nn.Module):
             torch.nn.SELU(),
         )
 
-        self.upscale = torch.nn.Sequential(
+        self.upscaler = torch.nn.Sequential(
             torch.nn.ReflectionPad2d(1),
-            torch.nn.Conv2d(64, 48, kernel_size=(3, 3), stride=(1, 1)),
+            torch.nn.Conv2d(64, 56, kernel_size=(3, 3), stride=(1, 1)),
+            torch.nn.SELU(),
+
+            torch.nn.ReflectionPad2d(1),
+            torch.nn.Conv2d(56, 48, kernel_size=(3, 3), stride=(1, 1)),
+            torch.nn.SELU(),
 
             torch.nn.ReflectionPad2d(1),
             torch.nn.Conv2d(48, 48*4, kernel_size=(3, 3), stride=(1, 1)),
@@ -42,3 +47,9 @@ class Processor(torch.nn.Module):
 
         if pretrained is True:
             self.load_state_dict(torch.load('data/processor.model'))
+
+    def downscale(self, latent):
+        return self.downscaler(latent)
+    
+    def upscale(self, latent):
+        return self.upscaler(latent)

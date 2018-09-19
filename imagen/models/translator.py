@@ -23,7 +23,11 @@ class Translator(torch.nn.Module):
 
         self.decoder = torch.nn.Sequential(
             torch.nn.ReflectionPad2d(1),
-            torch.nn.Conv2d(64, 32, kernel_size=(3, 3), stride=(1, 1)),
+            torch.nn.Conv2d(64, 48, kernel_size=(3, 3), stride=(1, 1)),
+            torch.nn.SELU(),
+
+            torch.nn.ReflectionPad2d(1),
+            torch.nn.Conv2d(48, 32, kernel_size=(3, 3), stride=(1, 1)),
             torch.nn.SELU(),
 
             torch.nn.ReflectionPad2d(1),
@@ -41,7 +45,7 @@ class Translator(torch.nn.Module):
 
         transform = torchvision.transforms.Compose([
             torchvision.transforms.ToTensor(),
-            torchvision.transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[1.0, 1.0, 1.0])
+            torchvision.transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.25, 0.25, 0.25])
         ])
 
         data = transform(image)[None]
@@ -52,8 +56,8 @@ class Translator(torch.nn.Module):
         """
 
         transform = torchvision.transforms.Compose([
-            torchvision.transforms.Lambda(lambda y: y.clamp_(-0.5, 0.5)),
-            torchvision.transforms.Normalize(mean=[-0.5, -0.5, -0.5], std=[1.0, 1.0, 1.0]),
+            torchvision.transforms.Lambda(lambda y: y.clamp_(-2.0, +2.0)),
+            torchvision.transforms.Normalize(mean=[-2.0, -2.0, -2.0], std=[4.0, 4.0, 4.0]),
             torchvision.transforms.ToPILImage()
         ])
 
