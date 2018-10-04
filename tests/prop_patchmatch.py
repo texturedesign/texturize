@@ -45,8 +45,18 @@ def test_indices_random(content, style):
     assert pm.indices.min() != pm.indices.max()
 
 
-@given(array=Tensor())
-def test_identity(array):
+@given(array=Tensor(min_size=2))
+def test_indices_linear(array):
     """Apply patch-match transformation with the same array.
     """
-    result, indices = patchmatch.transform(array, array)
+    pm = patchmatch.PatchMatcher(array, array, indices='linear')
+    assert (pm.indices[:,:,0] == torch.arange(start=0, end=array.shape[0]).view(-1, 1)).all()
+    assert (pm.indices[:,:,1] == torch.arange(start=0, end=array.shape[1]).view(1, -1)).all()
+
+
+@given(array=Tensor(min_size=2))
+def test_scores_identity(array):
+    """Apply patch-match transformation with the same array.
+    """
+    pm = patchmatch.PatchMatcher(array, array, indices='linear')
+    assert pm.scores.min() >= 0.999999

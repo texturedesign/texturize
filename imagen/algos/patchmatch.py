@@ -17,14 +17,21 @@ def torch_gather_2d(array, indices):
 
 class PatchMatcher:
 
-    def __init__(self, content, style, indices=None):
+    def __init__(self, content, style, indices='random'):
         content_norm = torch.sqrt(torch.sum(content ** 2.0, dim=2, keepdim=True))
         style_norm = torch.sqrt(torch.sum(style ** 2.0, dim=2, keepdim=True))
 
         self.content = content / content_norm
         self.style = style / style_norm
 
-        self.indices = indices or self.create_indices_random()
+        if indices == 'random':
+            self.indices = self.create_indices_random()
+        elif indices == 'linear':
+            self.indices = self.create_indices_linear()
+        else:
+            assert isinstance(indices, torch.Tensor)
+            self.indices = indices
+
         self.scores = torch.zeros(self.content.shape[:2] + (1,), dtype=torch.float, device=self.content.device)
 
         self.evaluate_patches(self.indices)
@@ -33,6 +40,13 @@ class PatchMatcher:
         indices = torch.zeros(self.content.shape[:2] + (2,), dtype=torch.long, device=self.content.device)
         torch.randint(low=0, high=self.style.shape[0], size=self.content.shape[:2], out=indices[:, :, 0])
         torch.randint(low=0, high=self.style.shape[1], size=self.content.shape[:2], out=indices[:, :, 1])
+        return indices
+
+    def create_indices_linear(self):
+        indices = torch.zeros(self.content.shape[:2] + (2,), dtype=torch.long, device=self.content.device)
+        indices[:, :, 0] = torch.arange(self.content.shape[0], dtype=torch.float).mul(self.style.shape[0] / self.content.shape[0]).view((-1, 1)).long()
+        indices[:, :, 1] = torch.arange(self.content.shape[1], dtype=torch.float).mul(self.style.shape[0] / self.content.shape[0]).view((1, -1)).long()
+        print('last', indices[-1:,-1:], 'shape', self.style.shape)
         return indices
 
     def evaluate_patches(self, candidate_indices):
@@ -52,7 +66,7 @@ class PatchMatcher:
 
 
 def transform(content, style, iterations=4):
-    matcher = PatchMatcher(content, style, indices=None)
+    matcher = PatchMatcher(content, style)
 
     for i in range(iterations):
         matcher.search_patches_propagate()
