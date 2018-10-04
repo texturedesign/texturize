@@ -3,6 +3,7 @@
 import torch
 from imagen.algos import patchmatch
 
+import pytest
 from hypothesis import given, settings, strategies as H
 
 
@@ -30,7 +31,7 @@ def test_indices_range(content, style):
 
 @given(content=Tensor(channels=3), style=Tensor(channels=3))
 def test_scores_range(content, style):
-    """Determine that random indices are indeed random.
+    """Determine that the scores of random patches are in correct range.
     """
     pm = patchmatch.PatchMatcher(content, style)
     assert pm.scores.min() >= 0.0
@@ -39,7 +40,7 @@ def test_scores_range(content, style):
 
 @given(content=Tensor(4, channels=3), style=Tensor(4, channels=3))
 def test_indices_random(content, style):
-    """Determine that random indices are indeed random.
+    """Determine that random indices are indeed random in larger grids.
     """
     pm = patchmatch.PatchMatcher(content, style)
     assert pm.indices.min() != pm.indices.max()
@@ -47,7 +48,7 @@ def test_indices_random(content, style):
 
 @given(array=Tensor(min_size=2))
 def test_indices_linear(array):
-    """Apply patch-match transformation with the same array.
+    """Indices of the indentity transformation should be linear.
     """
     pm = patchmatch.PatchMatcher(array, array, indices='linear')
     assert (pm.indices[:,:,0] == torch.arange(start=0, end=array.shape[0]).view(-1, 1)).all()
@@ -56,7 +57,25 @@ def test_indices_linear(array):
 
 @given(array=Tensor(min_size=2))
 def test_scores_identity(array):
-    """Apply patch-match transformation with the same array.
+    """The score of the identity operation with linear indices should be one.
     """
     pm = patchmatch.PatchMatcher(array, array, indices='linear')
-    assert pm.scores.min() >= 0.999999
+    assert pytest.approx(1.0) == pm.scores.min()
+
+
+@given(content=Tensor(4, channels=2), style=Tensor(4, channels=2))
+def test_scores_zero(content, style):
+    """Scores must be zero if inputs vary on different dimensions.
+    """
+    content[:,:,0], style[:,:,1] = 0.0, 0.0
+    pm = patchmatch.PatchMatcher(content, style)
+    assert pytest.approx(0.0) == pm.scores.max()
+
+
+@given(content=Tensor(4, channels=2), style=Tensor(4, channels=2))
+def test_scores_one(content, style):
+    """Scores must be one if inputs only vary on one dimension.
+    """
+    content[:,:,0], style[:,:,0] = 0.0, 0.0
+    pm = patchmatch.PatchMatcher(content, style)
+    assert pytest.approx(1.0) == pm.scores.min()
