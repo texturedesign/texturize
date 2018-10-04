@@ -58,8 +58,14 @@ class PatchMatcher:
         self.indices[:,:] = torch.where(better, candidate_indices, self.indices)
         self.scores[:,:] = torch.where(better, candidate_scores, self.scores)
 
-    def search_patches_random(self):
-        pass
+    def search_patches_random(self, radius=8, times=4):
+        for _ in range(times):
+            offset = torch.randint(low=-radius, high=radius+1, size=self.indices.shape,
+                                   dtype=torch.long, device=self.indices.device)
+            candidates = (self.indices + offset)
+            candidates[:,:,0].clamp_(min=0, max=self.style.shape[0] - 1)
+            candidates[:,:,1].clamp_(min=0, max=self.style.shape[1] - 1)
+            self.evaluate_patches(candidates)
     
     def search_patches_propagate(self):
         pass

@@ -4,7 +4,7 @@ import torch
 from imagen.algos import patchmatch
 
 import pytest
-from hypothesis import given, settings, strategies as H
+from hypothesis import given, event, strategies as H
 
 
 def make_square_tensor(size, channels):
@@ -79,3 +79,24 @@ def test_scores_one(content, style):
     content[:,:,0], style[:,:,0] = 0.0, 0.0
     pm = patchmatch.PatchMatcher(content, style)
     assert pytest.approx(1.0) == pm.scores.min()
+
+
+@given(content=Tensor(4, channels=2), style=Tensor(4, channels=2))
+def test_scores_zero(content, style):
+    """Scores must be zero if inputs vary on different dimensions.
+    """
+    content[:,:,0], style[:,:,1] = 0.0, 0.0
+    pm = patchmatch.PatchMatcher(content, style)
+    assert pytest.approx(0.0) == pm.scores.max()
+
+
+@given(content=Tensor(4, channels=5), style=Tensor(4, channels=5))
+def test_scores_improve(content, style):
+    """Scores must be one if inputs only vary on one dimension.
+    """
+    pm = patchmatch.PatchMatcher(content, style)
+    before = pm.scores.sum()
+    pm.search_patches_random(times=1)
+    after = pm.scores.sum()
+    event("equal? %i" % int(after == before))
+    assert after >= before
