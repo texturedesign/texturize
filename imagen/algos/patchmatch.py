@@ -18,6 +18,11 @@ def torch_gather_2d(array, indices):
     x = torch.index_select(torch_flatten_2d(array), 0, torch_flatten_1d(idx))
     return x.view(indices.shape[:2] + array.shape[-1:])
 
+def torch_replication_pad(array, padding):
+    array = array.permute(2, 0, 1)[None]
+    array = torch.nn.functional.pad(array, padding, mode='replicate')
+    return array[0].permute(1, 2, 0)
+
 
 class PatchMatcher:
     """Implementation of patchmatch that uses normalized cross-correlation
@@ -102,9 +107,7 @@ class PatchMatcher:
             lookup[:,:,1] += x + padding
 
             # Compute new padded buffer with the current best coordinates.
-            indices = self.indices.clone().float().permute(2, 0, 1)[None]
-            indices = torch.nn.functional.pad(indices, (padding, padding, padding, padding), mode='replicate')
-            indices = indices[0].permute(1, 2, 0).long()
+            indices = torch_replication_pad(self.indices.float(), (padding, padding, padding, padding)).long()
             indices[:,:,0] -= y
             indices[:,:,1] -= x
 
@@ -114,6 +117,27 @@ class PatchMatcher:
             candidates[:,:,1].clamp_(min=0, max=self.style.shape[1] - 1)
 
             self.improve_patches(candidates)
+
+
+class PatchExtractor:
+
+    def __init__(self, patch_size=3):
+        self.min = -((patch_size - 1) // 2)
+        self.max = patch_size + self.min - 1
+        self.patch_size = patch_size
+
+    def extract(self, array):
+        padded = torch_replication_pad(array, (abs(self.min), self.max, abs(self.min), self.max))
+        h, w = padded.shape[0] - self.patch_size + 1, padded.shape[1] - self.patch_size + 1
+        output = []
+        for y, x in itertools.product(self.coords, repeat=2):
+            p = padded[y:h+y,x:w+x]
+            output.append(p)
+        return torch.cat(output, dim=2)
+
+    @property
+    def coords(self):
+        return range(self.patch_size)
 
 
 def transform(content, style, iterations=4):

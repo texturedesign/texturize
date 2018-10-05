@@ -10,11 +10,14 @@ from hypothesis import given, event, strategies as H
 def make_square_tensor(size, channels):
     return torch.rand((size, size, channels), dtype=torch.float)
 
-def Tensor(min_size=1, channels=None) -> H.SearchStrategy[torch.Tensor]:
+def Tensor(range=(1,32), channels=None) -> H.SearchStrategy[torch.Tensor]:
     return H.builds(
         make_square_tensor,
-        size=H.integers(min_value=min_size, max_value=32),
+        size=H.integers(min_value=range[0], max_value=range[-1]),
         channels=H.integers(min_value=channels or 1, max_value=channels or 8))
+
+Coord = H.tuples(H.integers(), H.integers())
+CoordList = H.lists(Coord, min_size=1, max_size=32)
 
 
 @given(content=Tensor(channels=4), style=Tensor(channels=4))
@@ -38,7 +41,7 @@ def test_scores_range(content, style):
     assert pm.scores.max() <= 1.0
 
 
-@given(content=Tensor(4, channels=3), style=Tensor(4, channels=3))
+@given(content=Tensor(range=(4,32), channels=3), style=Tensor(range=(4,32), channels=3))
 def test_indices_random(content, style):
     """Determine that random indices are indeed random in larger grids.
     """
@@ -46,7 +49,7 @@ def test_indices_random(content, style):
     assert pm.indices.min() != pm.indices.max()
 
 
-@given(array=Tensor(min_size=2))
+@given(array=Tensor(range=(2,8)))
 def test_indices_linear(array):
     """Indices of the indentity transformation should be linear.
     """
@@ -55,7 +58,7 @@ def test_indices_linear(array):
     assert (pm.indices[:,:,1] == torch.arange(start=0, end=array.shape[1]).view(1, -1)).all()
 
 
-@given(array=Tensor(min_size=2))
+@given(array=Tensor(range=(2,16)))
 def test_scores_identity(array):
     """The score of the identity operation with linear indices should be one.
     """
@@ -63,7 +66,7 @@ def test_scores_identity(array):
     assert pytest.approx(1.0) == pm.scores.min()
 
 
-@given(content=Tensor(4, channels=2), style=Tensor(4, channels=2))
+@given(content=Tensor(range=(4,16), channels=2), style=Tensor(range=(4,16), channels=2))
 def test_scores_zero(content, style):
     """Scores must be zero if inputs vary on different dimensions.
     """
@@ -72,7 +75,7 @@ def test_scores_zero(content, style):
     assert pytest.approx(0.0) == pm.scores.max()
 
 
-@given(content=Tensor(4, channels=2), style=Tensor(4, channels=2))
+@given(content=Tensor(range=(4,16), channels=2), style=Tensor(range=(4,16), channels=2))
 def test_scores_one(content, style):
     """Scores must be one if inputs only vary on one dimension.
     """
@@ -81,7 +84,7 @@ def test_scores_one(content, style):
     assert pytest.approx(1.0) == pm.scores.min()
 
 
-@given(content=Tensor(4, channels=2), style=Tensor(4, channels=2))
+@given(content=Tensor(range=(4,32), channels=2), style=Tensor(range=(4,32), channels=2))
 def test_scores_zero(content, style):
     """Scores must be zero if inputs vary on different dimensions.
     """
@@ -90,7 +93,7 @@ def test_scores_zero(content, style):
     assert pytest.approx(0.0) == pm.scores.max()
 
 
-@given(content=Tensor(4, channels=5), style=Tensor(4, channels=5))
+@given(content=Tensor(range=(4,16), channels=5), style=Tensor(range=(4,16), channels=5))
 def test_scores_improve(content, style):
     """Scores must be one if inputs only vary on one dimension.
     """
@@ -102,7 +105,7 @@ def test_scores_improve(content, style):
     assert after >= before
 
 
-@given(array=Tensor(2, channels=5))
+@given(array=Tensor(range=(2,8), channels=5))
 def test_propagate_down_right(array):
     """Propagating the identity transformation expects indices to propagate
     one cell at a time, this time down and towards the right. 
@@ -117,7 +120,7 @@ def test_propagate_down_right(array):
     assert (pm.indices[1,1] == torch.tensor([1,1], dtype=torch.long)).all()
 
 
-@given(array=Tensor(2, channels=5))
+@given(array=Tensor(range=(2,8), channels=5))
 def test_propagate_up_left(array):
     """Propagating the identity transformation expects indices to propagate
     one cell at a time, here up and towards the left.
@@ -134,3 +137,53 @@ def test_propagate_up_left(array):
 
     pm.search_patches_propagate(steps=[1])
     assert (pm.indices[y-2,x-2] == torch.tensor([y-2,x-2], dtype=torch.long)).all()
+
+
+@given(patch_size=H.integers(1,11))
+def test_extract_min_max(patch_size):
+    pe = patchmatch.PatchExtractor(patch_size)
+    assert abs(pe.min) <= pe.max
+    assert (pe.max - pe.min) + 1 == patch_size
+    assert len(pe.coords) == patch_size
+
+
+@given(array=Tensor(), patch_size=H.integers(1,5))
+def test_extract_size(array, patch_size):
+    pe = patchmatch.PatchExtractor(patch_size)
+    result = pe.extract(array)
+    assert result.shape[2] == array.shape[2] * (patch_size ** 2)
+    assert result.shape[:2] == array.shape[:2]
+
+
+@given(array=Tensor(range=(2,8)), coords=CoordList)
+def test_extract_patches_even(array, coords):
+    pe = patchmatch.PatchExtractor(patch_size=2)
+    result = pe.extract(array)
+
+    for y, x in coords:
+        y = y % (array.shape[0] - 1)
+        x = x % (array.shape[1] - 1)
+        column = torch.cat([array[y+0,x+0], array[y+0,x+1], array[y+1,x+0], array[y+1,x+1]], dim=0)
+        assert (result[y,x] == column).all()
+
+    column_br = torch.cat([array[-1,-1], array[-1,-1], array[-1,-1], array[-1,-1]], dim=0)
+    assert (result[-1,-1] == column_br).all()
+
+
+@given(array=Tensor(range=(3,8)), coords=CoordList)
+def test_extract_patches_odd(array, coords):
+    pe = patchmatch.PatchExtractor(patch_size=3)
+    result = pe.extract(array)
+    
+    for y, x in coords:
+        y = y % (array.shape[0] - 2)
+        x = x % (array.shape[1] - 2)
+        column = torch.cat([array[y+0,x+0], array[y+0,x+1], array[y+0,x+2],
+                            array[y+1,x+0], array[y+1,x+1], array[y+1,x+2],
+                            array[y+2,x+0], array[y+2,x+1], array[y+2,x+2]], dim=0)
+        assert (result[y+1,x+1] == column).all()
+
+    column_br = torch.cat([array[-2,-2], array[-2,-1], array[-2,-1],
+                           array[-1,-2], array[-1,-1], array[-1,-1],
+                           array[-1,-2], array[-1,-1], array[-1,-1]], dim=0)
+    assert (result[-1,-1] == column_br).all()
