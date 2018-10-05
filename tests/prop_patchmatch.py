@@ -104,6 +104,9 @@ def test_scores_improve(content, style):
 
 @given(array=Tensor(2, channels=5))
 def test_propagate_down_right(array):
+    """Propagating the identity transformation expects indices to propagate
+    one cell at a time, this time down and towards the right. 
+    """
     pm = patchmatch.PatchMatcher(array, array, indices='zero')
 
     pm.search_patches_propagate(steps=[1])
@@ -116,6 +119,9 @@ def test_propagate_down_right(array):
 
 @given(array=Tensor(2, channels=5))
 def test_propagate_up_left(array):
+    """Propagating the identity transformation expects indices to propagate
+    one cell at a time, here up and towards the left.
+    """
     y, x = array.shape[:2]
     pm = patchmatch.PatchMatcher(array, array)
     pm.indices[-1,-1,0] = y - 1
