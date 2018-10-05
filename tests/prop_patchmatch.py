@@ -100,3 +100,31 @@ def test_scores_improve(content, style):
     after = pm.scores.sum()
     event("equal? %i" % int(after == before))
     assert after >= before
+
+
+@given(array=Tensor(2, channels=5))
+def test_propagate_down_right(array):
+    pm = patchmatch.PatchMatcher(array, array, indices='zero')
+
+    pm.search_patches_propagate(steps=[1])
+    assert (pm.indices[1,0] == torch.tensor([1,0], dtype=torch.long)).all()
+    assert (pm.indices[0,1] == torch.tensor([0,1], dtype=torch.long)).all()
+
+    pm.search_patches_propagate(steps=[1])
+    assert (pm.indices[1,1] == torch.tensor([1,1], dtype=torch.long)).all()
+
+
+@given(array=Tensor(2, channels=5))
+def test_propagate_up_left(array):
+    y, x = array.shape[:2]
+    pm = patchmatch.PatchMatcher(array, array)
+    pm.indices[-1,-1,0] = y - 1
+    pm.indices[-1,-1,1] = x - 1
+    pm.improve_patches(pm.indices)
+
+    pm.search_patches_propagate(steps=[1])
+    assert (pm.indices[y-2,x-1] == torch.tensor([y-2,x-1], dtype=torch.long)).all()
+    assert (pm.indices[y-1,x-2] == torch.tensor([y-1,x-2], dtype=torch.long)).all()
+
+    pm.search_patches_propagate(steps=[1])
+    assert (pm.indices[y-2,x-2] == torch.tensor([y-2,x-2], dtype=torch.long)).all()
