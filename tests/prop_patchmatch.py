@@ -141,24 +141,24 @@ def test_propagate_up_left(array):
 
 @given(patch_size=H.integers(1,11))
 def test_extract_min_max(patch_size):
-    pe = patchmatch.PatchExtractor(patch_size)
-    assert abs(pe.min) <= pe.max
-    assert (pe.max - pe.min) + 1 == patch_size
-    assert len(pe.coords) == patch_size
+    pb = patchmatch.PatchBuilder(patch_size)
+    assert abs(pb.min) <= pb.max
+    assert (pb.max - pb.min) + 1 == patch_size
+    assert len(pb.coords) == patch_size
 
 
 @given(array=Tensor(), patch_size=H.integers(1,5))
 def test_extract_size(array, patch_size):
-    pe = patchmatch.PatchExtractor(patch_size)
-    result = pe.extract(array)
+    pb = patchmatch.PatchBuilder(patch_size)
+    result = pb.extract(array)
     assert result.shape[2] == array.shape[2] * (patch_size ** 2)
     assert result.shape[:2] == array.shape[:2]
 
 
 @given(array=Tensor(range=(2,8)), coords=CoordList)
 def test_extract_patches_even(array, coords):
-    pe = patchmatch.PatchExtractor(patch_size=2)
-    result = pe.extract(array)
+    pb = patchmatch.PatchBuilder(patch_size=2)
+    result = pb.extract(array)
 
     for y, x in coords:
         y = y % (array.shape[0] - 1)
@@ -172,8 +172,8 @@ def test_extract_patches_even(array, coords):
 
 @given(array=Tensor(range=(3,8)), coords=CoordList)
 def test_extract_patches_odd(array, coords):
-    pe = patchmatch.PatchExtractor(patch_size=3)
-    result = pe.extract(array)
+    pb = patchmatch.PatchBuilder(patch_size=3)
+    result = pb.extract(array)
     
     for y, x in coords:
         y = y % (array.shape[0] - 2)
@@ -187,3 +187,33 @@ def test_extract_patches_odd(array, coords):
                            array[-1,-2], array[-1,-1], array[-1,-1],
                            array[-1,-2], array[-1,-1], array[-1,-1]], dim=0)
     assert (result[-1,-1] == column_br).all()
+
+
+@given(array=Tensor())
+def test_reconstruct_patches_identity(array):
+    pb = patchmatch.PatchBuilder(patch_size=1)
+    patches = pb.extract(array)
+    repro = pb.reconstruct(patches)
+
+    assert array.shape == repro.shape
+    assert (array == repro).all()
+
+
+@given(array=Tensor(range=[2], channels=1))
+def test_reconstruct_patches_even(array):
+    pb = patchmatch.PatchBuilder(patch_size=2, weights=(1.0, 0.0, 0.0, 0.0))
+    patches = pb.extract(array)
+    repro = pb.reconstruct(patches)
+
+    assert array.shape == repro.shape
+    assert (array == repro).all()
+
+
+@given(array=Tensor(range=[3]))
+def test_reconstruct_patches_odd(array):
+    pb = patchmatch.PatchBuilder(patch_size=3, weights=(0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0))
+    patches = pb.extract(array)
+    repro = pb.reconstruct(patches)
+
+    assert array.shape == repro.shape
+    assert (array == repro).all()

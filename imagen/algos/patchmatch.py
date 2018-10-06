@@ -18,7 +18,7 @@ def torch_gather_2d(array, indices):
     x = torch.index_select(torch_flatten_2d(array), 0, torch_flatten_1d(idx))
     return x.view(indices.shape[:2] + array.shape[-1:])
 
-def torch_replication_pad(array, padding):
+def torch_pad_replicate(array, padding):
     array = array.permute(2, 0, 1)[None]
     array = torch.nn.functional.pad(array, padding, mode='replicate')
     return array[0].permute(1, 2, 0)
@@ -64,7 +64,7 @@ class PatchMatcher:
     def create_indices_linear(self):
         indices = self.create_indices_zero()
         indices[:, :, 0] = torch.arange(self.content.shape[0], dtype=torch.float).mul(self.style.shape[0] / self.content.shape[0]).view((-1, 1)).long()
-        indices[:, :, 1] = torch.arange(self.content.shape[1], dtype=torch.float).mul(self.style.shape[0] / self.content.shape[0]).view((1, -1)).long()
+        indices[:, :, 1] = torch.arange(self.content.shape[1], dtype=torch.float).mul(self.style.shape[1] / self.content.shape[1]).view((1, -1)).long()
         return indices
 
     def improve_patches(self, candidate_indices):
@@ -107,7 +107,7 @@ class PatchMatcher:
             lookup[:,:,1] += x + padding
 
             # Compute new padded buffer with the current best coordinates.
-            indices = torch_replication_pad(self.indices.float(), (padding, padding, padding, padding)).long()
+            indices = torch_pad_replicate(self.indices.float(), (padding, padding, padding, padding)).long()
             indices[:,:,0] -= y
             indices[:,:,1] -= x
 
@@ -119,15 +119,22 @@ class PatchMatcher:
             self.improve_patches(candidates)
 
 
-class PatchExtractor:
+class PatchBuilder:
 
-    def __init__(self, patch_size=3):
+    def __init__(self, patch_size=3, weights=None):
         self.min = -((patch_size - 1) // 2)
         self.max = patch_size + self.min - 1
         self.patch_size = patch_size
 
+        if weights is None:
+            weights = torch.ones(size=(patch_size**2,))
+        else:
+            weights = torch.tensor(weights, dtype=torch.float)
+
+        self.weights = weights / weights.sum()
+
     def extract(self, array):
-        padded = torch_replication_pad(array, (abs(self.min), self.max, abs(self.min), self.max))
+        padded = torch_pad_replicate(array, (abs(self.min), self.max, abs(self.min), self.max))
         h, w = padded.shape[0] - self.patch_size + 1, padded.shape[1] - self.patch_size + 1
         output = []
         for y, x in itertools.product(self.coords, repeat=2):
@@ -135,17 +142,23 @@ class PatchExtractor:
             output.append(p)
         return torch.cat(output, dim=2)
 
+    def reconstruct(self, patches):
+        layer_count = len(self.coords) ** 2
+        layers = patches.view(patches.shape[:2] + (layer_count, -1))
+
+        oh = patches.shape[0] + abs(self.min) + self.max
+        ow = patches.shape[1] + abs(self.min) + self.max
+        output = patches.new_zeros((oh, ow) + (patches.shape[-1] // layer_count,))
+        weights = torch.zeros((oh, ow, 1), dtype=torch.float, device=patches.device)
+
+        ph, pw = patches.shape[:2]
+        for i, (y, x) in enumerate(itertools.product(self.coords, repeat=2)):
+            output[y:ph+y,x:pw+x,:] += layers[:,:,i,:] * self.weights[i]
+            weights[y:ph+y,x:pw+x] += self.weights[i]
+
+        weights[weights == 0.0] = 1.0
+        return (output / weights)[abs(self.min):oh-self.max,abs(self.min):ow-self.max]
+
     @property
     def coords(self):
         return range(self.patch_size)
-
-
-def transform(content, style, iterations=4):
-    matcher = PatchMatcher(content, style)
-
-    for i in range(iterations):
-        matcher.search_patches_random()
-        matcher.search_patches_propagate()
-
-    repro = torch_gather_2d(matcher.style, matcher.indices)
-    return repro, matcher.indices
