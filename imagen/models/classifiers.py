@@ -30,6 +30,6 @@ class VGG19(torch.nn.Module):
 
     def gram_matrix(self, features):
         (b, ch, h, w) = features.size()
-        f_i = (features - 1.0).view(b, ch, w * h)
+        f_i = features.view(b, ch, w * h)
         f_t = f_i.transpose(1, 2)
         return f_i.bmm(f_t) / (ch * h * w)
