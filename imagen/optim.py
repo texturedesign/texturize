@@ -6,14 +6,17 @@ import torch.nn.functional as F
 
 class ImageOptimizer:
 
-    def __init__(self, image, evaluations):
-        self.evaluations = evaluations
+    def __init__(self):
         self.counter = 0
+        self.image = None
+        self.lbfgs = None
+
+    def optimize(self, image, evaluations):
         self.image = image.detach().requires_grad_()
         self.lbfgs = torch.optim.LBFGS([self.image])
+        self.counter = 0
 
-    def run(self):
-        while self.counter <= self.evaluations:
+        while self.counter <= evaluations:
             self.lbfgs.step(self.tick)
 
         self.image.data.clamp_(-2.0, +2.0)
