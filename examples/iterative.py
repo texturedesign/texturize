@@ -16,12 +16,17 @@ class StyleTransfer(optim.ImageOptimizer):
         super(StyleTransfer, self).__init__()
 
         if args.random_seed is not None:
-            torch.manual_seed(args.seed)
+            torch.manual_seed(args.random_seed)
 
         self.device = torch.device(args.device)
         self.model = classifiers.VGG19().to(self.device)
 
-        self.content_img = images.load_from_file(args.content, self.device)
+        if args.content is not None:
+            self.content_img = images.load_from_file(args.content, self.device)
+        else:
+            h, w = map(int, args.content_size.split('x'))
+            self.content_img = torch.empty((1, 3, h, w), device=self.device)
+
         self.style_img = images.load_from_file(args.style, self.device)
         self.seed_img = None
 
@@ -58,9 +63,10 @@ class StyleTransfer(optim.ImageOptimizer):
             style_img = resize.DownscaleBuilder(factor).build(self.style_img)
 
             if self.seed_img is None:
-                seed_img = torch.empty_like(content_img).normal_().mul_(0.25).clamp_(-2.0, +2.0)
+                seed_img = torch.empty_like(content_img).normal_(std=0.5).clamp_(-2.0, +2.0)
             else:
-                seed_img = resize.DownscaleBuilder(factor).build(self.seed_img)
+                seed_img = (resize.DownscaleBuilder(factor).build(self.seed_img)
+                            + torch.empty_like(content_img).normal_(std=0.1)).clamp_(-2.0, +2.0)
 
             self.content_feat = {k: (v - 1.0).detach() for k, v in self.model.extract(content_img, layers=self.config.content_layers)}
             self.style_feat = {k: self.model.gram_matrix(v - 1.0).detach() for k, v in self.model.extract(style_img, layers=self.config.style_layers)}
@@ -75,7 +81,8 @@ def main(args):
 
     parser = argparse.ArgumentParser(prog='imagen')
     add_arg = parser.add_argument
-    add_arg('content', type=str, help='Image to use as reference.')
+    add_arg('--content', type=str, default=None, help='Image to use as reference.')
+    add_arg('--content-size', type=str, default=None)
     add_arg('--with', dest='style', type=str, required=True, help='Image for inspiration.')
     add_arg('--iterations', type=int, default=250, help='Number of iterations.')
     add_arg('--scales', type=int, default=3, help='Total number of scales.')
