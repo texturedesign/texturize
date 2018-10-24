@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 
 from imagen import optim
-from imagen.data import images, resize
+from imagen.data import images, resize, histogram
 from imagen.models import classifiers
 
 
@@ -28,30 +28,39 @@ class StyleTransfer(optim.ImageOptimizer):
             self.content_img = torch.empty((1, 3, h, w), device=self.device)
 
         self.style_img = images.load_from_file(args.style, self.device)
+        self.style_feat = {}
+        self.style_hist = {}
         self.seed_img = None
 
         self.config = args
         self.config.style_weights = [w * self.config.style_multiplier for w in self.config.style_weights]
-        self.all_layers = set(self.config.content_layers) | set(self.config.style_layers)
+        self.all_layers = set(self.config.content_layers) | set(self.config.style_layers) | set(self.config.histogram_layers)
 
     def evaluate(self, image):
         style_score = torch.tensor(0.0)
+        hist_score = torch.tensor(0.0)
         content_score = torch.tensor(0.0)
 
-        cw, sw = iter(self.config.content_weights), iter(self.config.style_weights)
+        cw = iter(self.config.content_weights)
+        sw = iter(self.config.style_weights)
+        hw = iter(self.config.histogram_weights)
+
         for i, l in self.model.extract(image, layers=self.all_layers):
             if i in self.config.content_layers:
                 content_score += F.mse_loss(self.content_feat[i], l - 1.0) * next(cw)
             if i in self.config.style_layers:
                 style_score += F.mse_loss(self.style_feat[i], self.model.gram_matrix(l - 1.0)) * next(sw)
+            if i in self.config.histogram_layers:
+                tl = histogram.match_histograms(l, self.style_hist[i], same_range=True)
+                hist_score += F.mse_loss(tl, l) * next(hw)
 
         if self.should_do(self.config.save_every):
             images.save_to_file(self.image.clone().detach().cpu(), 'output/test%04i.png' % (self.scale * 1000 + self.counter))
         if self.should_do(self.config.print_every):
-            print('Iteration: {}    Style Loss: {:4f}     Content Loss: {:4f}'.format(
-                self.counter, style_score.item(), content_score.item()))
+            print('Iteration: {}    Style Loss: {:4f}     Content Loss: {:4f}    Histogram Loss: {:4f}'.format(
+                self.counter, style_score.item(), content_score.item(), hist_score.item()))
 
-        return style_score + content_score
+        return content_score + hist_score + style_score
 
     def should_do(self, every):
         return (every != 0) and (self.counter % every == 0)
@@ -66,14 +75,20 @@ class StyleTransfer(optim.ImageOptimizer):
                 seed_img = torch.empty_like(content_img).normal_(std=0.5).clamp_(-2.0, +2.0)
             else:
                 seed_img = (resize.DownscaleBuilder(factor).build(self.seed_img)
-                            + torch.empty_like(content_img).normal_(std=0.1)).clamp_(-2.0, +2.0)
+                           + torch.empty_like(content_img).normal_(std=0.1)).clamp_(-2.0, +2.0)
 
             self.content_feat = {k: (v - 1.0).detach() for k, v in self.model.extract(content_img, layers=self.config.content_layers)}
-            self.style_feat = {k: self.model.gram_matrix(v - 1.0).detach() for k, v in self.model.extract(style_img, layers=self.config.style_layers)}
+            self.style_feat, self.style_hist = {}, {}
+            for k, v in self.model.extract(style_img, layers=self.config.style_layers):
+                self.style_feat[k] = self.model.gram_matrix(v - 1.0).detach()
+            for k, v in self.model.extract(style_img, layers=self.config.histogram_layers):
+                self.style_hist[k] = histogram.extract_histograms(v, bins=5, min=torch.tensor(-1.0+1e-3), max=torch.tensor(+4.0))
 
-            output = super(StyleTransfer, self).optimize(seed_img, self.config.iterations)
+            output = self.optimize(seed_img, self.config.iterations, lr=1.0 if self.scale == 0 else 0.2)
 
             self.seed_img = resize.UpscaleBuilder(factor, mode='bilinear').build(output)
+
+        return output
 
 
 def main(args):
@@ -91,6 +106,8 @@ def main(args):
     add_arg('--style-layers', type=int, nargs='*', default=[1, 6, 11])
     add_arg('--style-weights', type=float, nargs='*', default=[1.0, 1.0, 1.0])
     add_arg('--style-multiplier', type=float, default=1e+6)
+    add_arg('--histogram-layers', type=int, nargs='*', default=[0, 5])
+    add_arg('--histogram-weights', type=float, nargs='*', default=[1.0, 1.0])
     add_arg('--content-layers', type=int, nargs='*', default=[11])
     add_arg('--content-weights', type=float, nargs='*', default=[1.0])
     add_arg('--save-every', type=int, default=0)
@@ -99,7 +116,6 @@ def main(args):
 
     optimizer = StyleTransfer(args)
     output = optimizer.run()
-
 
 if __name__ == '__main__':
     import sys
