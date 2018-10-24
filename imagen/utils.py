@@ -20,3 +20,15 @@ def torch_pad_replicate(array, padding):
     array = array.permute(2, 0, 1)[None]
     array = torch.nn.functional.pad(array, padding, mode='replicate')
     return array[0].permute(1, 2, 0)
+
+def torch_interp(array, xs, ys):
+    result = torch.zeros_like(array)
+    array = array.clamp(xs[0], xs[-1])
+    for (xn, xm), (yn, ym) in zip(zip(xs[:-1], xs[1:]), zip(ys[:-1], ys[1:])):
+        if xn == xm:
+            continue
+
+        sliced = yn + ((array - xn) / (xm - xn)) * (ym - yn)
+        result += torch.where(xn <= array, torch.where(array < xm, sliced, torch.tensor(0.0)), torch.tensor(0.0))
+    return result
+
