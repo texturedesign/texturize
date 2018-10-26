@@ -4,6 +4,23 @@ import torch
 from ..utils import torch_mean, torch_std, torch_interp
 
 
+def square_matrix(features):
+    (b, ch, h, w) = features.size()
+    f_i = features.view(b, ch, w * h)
+    f_t = f_i.transpose(1, 2)
+    return f_i.bmm(f_t) / (ch * h * w)
+
+
+def rectangular_matrix(column, row):
+    (b, ch, h, w) = column.size()
+    f_c = column.view(b, ch, w * h)
+
+    (b, ch, h, w) = row.size()
+    f_r = row.view(b, ch, w * h).transpose(1, 2)
+
+    return f_c.bmm(f_r) / (ch * h * w)
+
+
 def extract_histograms(data, bins=7, min=None, max=None):
     if min is None:
         min = data.min()

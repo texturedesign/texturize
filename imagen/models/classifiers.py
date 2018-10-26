@@ -27,16 +27,10 @@ class VGG19(torch.nn.Module):
         """Preprocess an image to be compatible with pre-trained model, and return required features.
         """
         if len(layers) == 0:
-            raise StopIteration
+            return
 
         image = ((image * 0.25 + 0.5) - self.stmean) / self.stddev
         for i in range(max(layers)+1):
             image = self.features[i].forward(image)
             if i in layers:
                 yield i, image
-
-    def gram_matrix(self, features):
-        (b, ch, h, w) = features.size()
-        f_i = features.view(b, ch, w * h)
-        f_t = f_i.transpose(1, 2)
-        return f_i.bmm(f_t) / (ch * h * w)
