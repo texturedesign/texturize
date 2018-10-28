@@ -16,19 +16,15 @@ class DownscaleBuilder:
         self.downscaler[0].weight[:,0,:,:] = 1.0 / (factor ** 2)
 
     def build(self, image):
-        with torch.no_grad():
-            result = self.downscaler(image)
-        return result
+        return self.downscaler(image)
 
 
 class UpscaleBuilder:
 
     def __init__(self, factor, channels=3, mode='nearest'):
         self.upscaler = torch.nn.Sequential(
-            torch.nn.Upsample(scale_factor=(factor, factor), mode=mode)
+            torch.nn.Upsample(scale_factor=(factor, factor), mode=mode) # , align_corners=True)
         )
 
     def build(self, image):
-        with torch.no_grad():
-            result = self.upscaler(image)
-        return result
+        return self.upscaler(image)

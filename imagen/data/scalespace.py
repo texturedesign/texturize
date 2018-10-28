@@ -26,10 +26,10 @@ class OctaveBuilder:
         return kernel / torch.sum(kernel)
 
     def build(self, image):
-        array = image.permute(2, 0, 1)[None]
-        result = [array]
-        for _ in range(self.levels-1):
+        result = [image]
+        for i in range(self.levels-1):
             with torch.no_grad():
-                array = self.gaussian_blur(array)
-            result.append(array)
-        return torch.cat([r[0].permute(1, 2, 0) for r in result], dim=2)
+                for j in range(2**(i+1)):
+                    image = self.gaussian_blur(image)
+            result.append(image)
+        return torch.cat(result, dim=1)
