@@ -15,5 +15,5 @@ def load_from_file(filename, device, mode='RGB'):
 def save_to_file(image, filename, mode='RGB'):
     img = (image * 0.25 + 0.5).mul(255.0).clamp(0, 255.0).detach().cpu().numpy()
     img = img[0].transpose(1, 2, 0).astype('uint8')
-    img = PIL.Image.fromarray(img, mode)
+    img = PIL.Image.fromarray(img, mode).convert('RGB')
     img.save(filename)

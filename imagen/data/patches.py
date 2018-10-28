@@ -31,20 +31,20 @@ class PatchBuilder:
 
     def reconstruct(self, patches):
         layer_count = len(self.coords) ** 2
-        layers = patches.view(patches.shape[:2] + (layer_count, -1))
+        layers = patches.view((patches.shape[0], layer_count, -1) + patches.shape[2:])
 
-        oh = patches.shape[0] + abs(self.min) + self.max
-        ow = patches.shape[1] + abs(self.min) + self.max
-        output = patches.new_zeros((oh, ow) + (patches.shape[-1] // layer_count,))
-        weights = torch.zeros((oh, ow, 1), dtype=torch.float, device=patches.device)
+        oh = patches.shape[2] + abs(self.min) + self.max
+        ow = patches.shape[3] + abs(self.min) + self.max
+        output = patches.new_zeros((patches.shape[0], patches.shape[1] // layer_count,) + (oh, ow))
+        weights = torch.zeros((patches.shape[0], 1, oh, ow), dtype=torch.float, device=patches.device)
 
-        ph, pw = patches.shape[:2]
+        ph, pw = patches.shape[2:]
         for i, (y, x) in enumerate(itertools.product(self.coords, repeat=2)):
-            output[y:ph+y,x:pw+x,:] += layers[:,:,i,:] * self.weights[i]
-            weights[y:ph+y,x:pw+x] += self.weights[i]
+            output[:,:,y:ph+y,x:pw+x] += layers[:,i,:,:,:] * self.weights[i]
+            weights[:,0,y:ph+y,x:pw+x] += self.weights[i]
 
         weights[weights == 0.0] = 1.0
-        return (output / weights)[abs(self.min):oh-self.max,abs(self.min):ow-self.max]
+        return (output / weights)[:,:,abs(self.min):oh-self.max,abs(self.min):ow-self.max]
 
     @property
     def coords(self):

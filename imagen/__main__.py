@@ -17,10 +17,6 @@ r"""                         _   _
 
 import argparse
 
-import PIL.Image
-
-from .models import processor, translator
-
 
 __version__ = '0.1'
 
@@ -63,18 +59,15 @@ print("""{}    {}\nGeneration and synthesis of bitmap images powered by Deep Lea
 class Application:
 
     def __init__(self):
-        self.translator = translator.Translator()
-        self.processor = processor.Processor()
+        pass
 
-    def repair(self, args):
-        image = PIL.Image.open(args.image).convert(mode='RGB')
+    def cmd_reconstruct(self, args):
+        from .commands import reconstruct
+        return reconstruct.main(args)
 
-        ze0 = self.translator.encode(image)
-        ze1 = self.processor.downscale(ze0)
-        zd0 = self.processor.upscale(ze1)
-        output = self.translator.decode(zd0)
-
-        output.save(args.image+'_.png')
+    def cmd_synthesize(self, args):
+        from .commands import synthesize
+        return synthesize.main(args)
 
 
 def main():
@@ -82,9 +75,18 @@ def main():
     parser = argparse.ArgumentParser(prog='imagen')
     subparsers = parser.add_subparsers()
 
-    parse_repro = subparsers.add_parser('repair')
-    parse_repro.add_argument('image', type=str, help='Filename of input image.')
-    parse_repro.set_defaults(func=app.repair)
+    parse_recons = subparsers.add_parser('reconstruct')
+    parse_recons.add_argument('content', type=str, help='Filename of input image.')
+    parse_recons.add_argument('--with', dest='style', type=str, required=True, help='Image for inspiration.')
+    parse_recons.add_argument('--iterations', type=int, default=4, help='Number of iterations.')
+    parse_recons.add_argument('--passes', type=int, default=2, help='Number of passes.')
+    parse_recons.set_defaults(func=app.cmd_reconstruct)
+
+    parse_synthz = subparsers.add_parser('synthesize')
+    parse_synthz.add_argument('style', type=str, help='Filename of input image.')
+    parse_synthz.add_argument('--iterations', type=int, default=8, help='Number of iterations.')
+    parse_synthz.add_argument('--octaves', type=int, default=5, help='Number of octaves.')
+    parse_synthz.set_defaults(func=app.cmd_synthesize)
 
     args = parser.parse_args()
     args.func(args)
