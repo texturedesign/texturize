@@ -12,16 +12,16 @@ class PatchMatcher:
     """
 
     def __init__(self, content, style, indices='random'):
-        # Compute the norm of the vector for each pixel.
-        content_norm = torch.sqrt(torch.sum(content ** 2.0, dim=2, keepdim=True))
-        style_norm = torch.sqrt(torch.sum(style ** 2.0, dim=2, keepdim=True))
+        assert len(content.shape) == 4 and len(style.shape) == 4
+        assert content.shape[0] == 1 and style.shape[0] == 1
+
         # Normalize the arrays that were provided by the user.
-        self.content = content / content_norm
-        self.style = style / style_norm
+        self.content = self.normalize_patches(content)
+        self.style = self.normalize_patches(style)
 
         # Initialize the coordinates for the starting state.
         if indices == 'zero':
-            self.indices = self.create_indices_zero()
+            self.indices = self.create_indices_empty().zero_()
         elif indices == 'random':
             self.indices = self.create_indices_random()
         elif indices == 'linear':
@@ -31,23 +31,32 @@ class PatchMatcher:
             self.indices = indices.long()
 
         # Compute the scores for the first chosen coordinates.
-        self.scores = torch.zeros(self.content.shape[:2] + (1,), dtype=torch.float, device=self.content.device)
+        b, c, h, w = self.content.shape
+        self.scores = torch.zeros((b, 1, h, w), dtype=torch.float, device=self.content.device)
         self.improve_patches(self.indices)
 
-    def create_indices_zero(self):
-        return torch.zeros(self.content.shape[:2] + (2,), dtype=torch.long, device=self.content.device)
+    def create_indices_empty(self):
+        return torch.empty((1,2) + self.content.shape[-2:], dtype=torch.long, device=self.content.device)
 
     def create_indices_random(self):
-        indices = self.create_indices_zero()
-        torch.randint(low=0, high=self.style.shape[0], size=self.content.shape[:2], out=indices[:, :, 0])
-        torch.randint(low=0, high=self.style.shape[1], size=self.content.shape[:2], out=indices[:, :, 1])
+        indices = self.create_indices_empty()
+        torch.randint(low=0, high=self.style.shape[2], size=self.content.shape[-2:], out=indices[:, 0, :, :])
+        torch.randint(low=0, high=self.style.shape[3], size=self.content.shape[-2:], out=indices[:, 1, :, :])
         return indices
 
     def create_indices_linear(self):
-        indices = self.create_indices_zero()
-        indices[:, :, 0] = torch.arange(self.content.shape[0], dtype=torch.float).mul(self.style.shape[0] / self.content.shape[0]).view((-1, 1)).long()
-        indices[:, :, 1] = torch.arange(self.content.shape[1], dtype=torch.float).mul(self.style.shape[1] / self.content.shape[1]).view((1, -1)).long()
+        indices = self.create_indices_empty()
+        b, _, h, w = indices.shape
+        indices[:, 0, :, :] = torch.arange(h, dtype=torch.float).mul(self.style.shape[2] / h).view((b, -1, 1)).long()
+        indices[:, 1, :, :] = torch.arange(w, dtype=torch.float).mul(self.style.shape[3] / w).view((b, 1, -1)).long()
         return indices
+
+    def normalize_patches(self, patches):
+        """Setup patches for normalized cross-correlation. The same patch times itself
+        should result in 1.0.
+        """
+        patches_norm = torch.sqrt(torch.sum(patches ** 2.0, dim=1, keepdim=True))
+        return patches / patches_norm
 
     def improve_patches(self, candidate_indices):
         """Compute the similarity score for target patches and possible improvements
@@ -55,26 +64,32 @@ class PatchMatcher:
         indices and score array to reflect the new chosen coordinates.
         """
         candidate_repro = torch_gather_2d(self.style, candidate_indices)
-        candidate_scores = torch.sum(self.content * candidate_repro, dim=2, keepdim=True)
+        candidate_scores = torch.sum(self.content * candidate_repro, dim=1, keepdim=True)
 
         better = candidate_scores > self.scores
 
-        self.indices[:,:] = torch.where(better, candidate_indices, self.indices)
-        self.scores[:,:] = torch.where(better, candidate_scores, self.scores)
+        self.indices[:,:,:,:] = torch.where(better, candidate_indices, self.indices)
+        self.scores[:,:,:,:] = torch.where(better, candidate_scores, self.scores)
+
+        print('.', end='', flush=True)
 
     def search_patches_random(self, radius=8, times=4):
         """Generate random coordinates within a radius for each pixel, then compare the 
         patches to see if the current selection can be improved.
         """
-        for _ in range(times):
-            offset = torch.randint(low=-radius, high=radius+1, size=self.indices.shape,
-                                   dtype=torch.long, device=self.indices.device)
-            candidates = (self.indices + offset)
-            candidates[:,:,0].clamp_(min=0, max=self.style.shape[0] - 1)
-            candidates[:,:,1].clamp_(min=0, max=self.style.shape[1] - 1)
+        for i in range(times):
+            if i % 2 == 0:
+                offset = torch.randint(low=-radius, high=radius+1, size=self.indices.shape,
+                                       dtype=torch.long, device=self.indices.device)
+                candidates = (self.indices + offset)
+            else:
+                candidates = self.create_indices_random()
+
+            candidates[:,0,:,:].clamp_(min=0, max=self.style.shape[2] - 1)
+            candidates[:,1,:,:].clamp_(min=0, max=self.style.shape[3] - 1)
             self.improve_patches(candidates)
-    
-    def search_patches_propagate(self, steps=[1, 2]):
+
+    def search_patches_propagate(self, steps=[1, 2, 4, 8]):
         """Generate nearby coordinates for each pixel to see if offseting the neighboring
         pixel would provide better results.
         """
@@ -83,19 +98,19 @@ class PatchMatcher:
         for y, x in cells:
             # Create a lookup map with offset coordinates from each coordinate.
             lookup = self.indices.new_empty(self.indices.shape)
-            lookup[:,:,0] = torch.arange(0, lookup.shape[0], dtype=torch.long).view((-1, 1))
-            lookup[:,:,1] = torch.arange(0, lookup.shape[1], dtype=torch.long).view((1, -1))
-            lookup[:,:,0] += y + padding
-            lookup[:,:,1] += x + padding
+            lookup[:,0,:,:] = torch.arange(0, lookup.shape[2], dtype=torch.long).view((1, -1, 1))
+            lookup[:,1,:,:] = torch.arange(0, lookup.shape[3], dtype=torch.long).view((1, 1, -1))
+            lookup[:,0,:,:] += y + padding
+            lookup[:,1,:,:] += x + padding
 
             # Compute new padded buffer with the current best coordinates.
             indices = torch_pad_replicate(self.indices.float(), (padding, padding, padding, padding)).long()
-            indices[:,:,0] -= y
-            indices[:,:,1] -= x
+            indices[:,0,:,:] -= y
+            indices[:,1,:,:] -= x
 
             # Lookup the neighbor coordinates and clamp if the calculation overflows.
             candidates = torch_gather_2d(indices, lookup)
-            candidates[:,:,0].clamp_(min=0, max=self.style.shape[0] - 1)
-            candidates[:,:,1].clamp_(min=0, max=self.style.shape[1] - 1)
+            candidates[:,0,:,:].clamp_(min=0, max=self.style.shape[2] - 1)
+            candidates[:,1,:,:].clamp_(min=0, max=self.style.shape[3] - 1)
 
             self.improve_patches(candidates)

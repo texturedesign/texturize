@@ -22,12 +22,12 @@ class PatchBuilder:
 
     def extract(self, array):
         padded = torch_pad_replicate(array, (abs(self.min), self.max, abs(self.min), self.max))
-        h, w = padded.shape[0] - self.patch_size + 1, padded.shape[1] - self.patch_size + 1
+        h, w = padded.shape[2] - self.patch_size + 1, padded.shape[3] - self.patch_size + 1
         output = []
         for y, x in itertools.product(self.coords, repeat=2):
-            p = padded[y:h+y,x:w+x]
+            p = padded[:,:,y:h+y,x:w+x]
             output.append(p)
-        return torch.cat(output, dim=2)
+        return torch.cat(output, dim=1)
 
     def reconstruct(self, patches):
         layer_count = len(self.coords) ** 2

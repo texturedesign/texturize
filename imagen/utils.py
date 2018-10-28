@@ -14,7 +14,7 @@ def torch_gather_2d(array, indices):
     """
     assert indices.shape[0] == 1 and array.shape[0] == 1
 
-    idx = indices[0, 0, :, :] * array.shape[2] + indices[0, 1, :, :]
+    idx = indices[0, 0, :, :] * array.shape[3] + indices[0, 1, :, :]
     x = torch.index_select(torch_flatten_2d(array), 2, torch_flatten_1d(idx))
     return x.view(array.shape[:2] + indices.shape[-2:])
 
