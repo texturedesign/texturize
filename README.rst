@@ -1,7 +1,17 @@
+neural-imagen
+=============
+
+This repository includes:
+
+1. A library of building blocks for state-of-the-art image synthesis.
+2. Reference implementations of popular deep learning algorithms.
+
+----
+
 Reference Implementations
 =========================
 
-Implementation of neural style transfer based on the following:
+In the examples folder, you'll find a documented implementation of neural style transfer based on the following:
 
 * `A Neural Algorithm of Artistic Style <https://arxiv.org/abs/1508.06576>`_, Gatys et al. 2015.
 * `Improving the Neural Algorithm of Artistic Style <https://arxiv.org/abs/1605.04603>`_, Novak & Nikulin, 2016.
