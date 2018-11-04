@@ -30,11 +30,17 @@ class StyleTransfer(optim.ImageOptimizer):
         if args.content is not None:
             self.content_img = images.load_from_file(args.content, self.device)
         else:
-            h, w = reversed(list(map(int, args.content_size.split('x'))))
-            self.content_img = torch.empty((1, 3, h, w), device=self.device)
+            args.content_weights, args.content_layers = [], []
+            h, w = reversed(list(map(int, args.output_size.split('x'))))
+            self.content_img = torch.zeros((1, 3, h, w), device=self.device)
 
         # Load the style image from disk to be processed during optimization.
-        self.style_img = images.load_from_file(args.style, self.device)
+        if args.style is not None:
+            self.style_img = images.load_from_file(args.style, self.device)
+        else:
+            args.style_weights, args.style_layers = [], []
+            self.style_img = None
+
         self.seed_img = None
 
         # Preprocess the various loss weights and decide which layers need to be computed.
@@ -103,9 +109,8 @@ class StyleTransfer(optim.ImageOptimizer):
             # Determine the stating point for the optimizer, was there an output of previous scale?
             if self.seed_img is None:
                 # a) Load an image from disk, this needs to be the exact right size.
-                if self.args.seed_image:
-                    seed_img = images.load_from_file(self.args.seed_image, self.device)
-                    seed_img.detach_().clamp_(-2.0, +2.0)
+                if self.args.seed is not None:
+                    seed_img = images.load_from_file(self.args.seed, self.device)
                     assert seed_img.shape == content_img.shape
 
                 # b) Use completely random buffer from a normal distribution.
@@ -124,7 +129,7 @@ class StyleTransfer(optim.ImageOptimizer):
             # Pre-compute feature histograms for the style image layers specified.
             self.style_hist = {}
             for k, v in self.model.extract(style_img, layers=self.args.histogram_layers):
-                self.style_hist[k] = histogram.extract_histograms(v, bins=5, min=torch.tensor(-1.0+1e-3), max=torch.tensor(+4.0))
+                self.style_hist[k] = histogram.extract_histograms(v, bins=5, min=torch.tensor(-1.0), max=torch.tensor(+4.0))
 
             # Prepare and store the content image activations for image layers too.
             self.content_feat = {}
@@ -139,7 +144,7 @@ class StyleTransfer(optim.ImageOptimizer):
 
         # Save the final image at the finest scale to disk.
         basename = os.path.splitext(os.path.basename(self.args.content or self.args.style))[0]
-        images.save_to_file(self.image.clone().detach().cpu(), 'output/%s_final.png' % basename)
+        images.save_to_file(self.image.clone().detach().cpu(), self.args.output or ('output/%s_final.png' % basename))
 
 
 def main(args):
@@ -147,21 +152,22 @@ def main(args):
 
     parser = argparse.ArgumentParser(prog='imagen')
     add_arg = parser.add_argument
-    add_arg('--content', type=str, default=None, help='Image to use as reference.')
-    add_arg('--content-size', type=str, default=None)
-    add_arg('--with', dest='style', type=str, required=True, help='Image for inspiration.')
-    add_arg('--iterations', type=int, default=250, help='Number of iterations.')
     add_arg('--scales', type=int, default=3, help='Total number of scales.')
-    add_arg('--seed-random', type=int, default=None, help='Seed for random numbers.')
-    add_arg('--seed-image', type=str, default=None, help='Initial image to use.')
+    add_arg('--iterations', type=int, default=250, help='Number of iterations each scale.')
     add_arg('--device', type=str, default=device, help='Where to perform the computation.')
-    add_arg('--style-layers', type=int, nargs='*', default=[1, 6, 11])
-    add_arg('--style-weights', type=float, nargs='*', default=[1.0, 1.0, 1.0, 1.0])
-    add_arg('--style-multiplier', type=float, default=1e+6)
-    add_arg('--histogram-layers', type=int, nargs='*', default=[0, 5])
-    add_arg('--histogram-weights', type=float, nargs='*', default=[1.0, 1.0])
-    add_arg('--content-layers', type=int, nargs='*', default=[11])
+    add_arg('--content', type=str, default=None, help='Image to use as reference.')
+    add_arg('--content-layers', type=int, nargs='*', default=[20])
     add_arg('--content-weights', type=float, nargs='*', default=[1.0])
+    add_arg('--output', type=str, default=None, help='Filename for output image.')
+    add_arg('--output-size', type=str, default=None)
+    add_arg('--seed', type=str, default=None, help='Initial image to use.')
+    add_arg('--seed-random', type=int, default=None, help='Seed for random numbers.')
+    add_arg('--style', type=str, default=None, help='Image for inspiration.')
+    add_arg('--style-layers', type=int, nargs='*', default=[1, 6, 11, 20, 29])
+    add_arg('--style-weights', type=float, nargs='*', default=[1.0, 1.0, 1.0, 1.0, 1.0])
+    add_arg('--style-multiplier', type=float, default=1e+6)
+    add_arg('--histogram-layers', type=int, nargs='*', default=[])
+    add_arg('--histogram-weights', type=float, nargs='*', default=[])
     add_arg('--save-every', type=int, default=0)
     add_arg('--print-every', type=int, default=10)
     args = parser.parse_args()
@@ -172,4 +178,6 @@ def main(args):
 
 if __name__ == '__main__':
     import sys
+    import imagen.__main__
+
     main(sys.argv)
