@@ -1,49 +1,87 @@
 # Neural Imagen — Copyright (c) 2018, Alex J. Champandard. Code licensed under the GNU AGPLv3.
 
-import os
-import bz2
-import urllib
-import hashlib
-import progressbar
+import collections
 
 import torch.nn
-import torchvision
 
-from imagen.models import download_to_file
+from . import download_to_file
+from .vgg import ConvLayer, NormLayer, VGGEncoder
 
 
-class VGG19(torch.nn.Module):
+class VGG19Encoder(VGGEncoder):
     def __init__(self, pooling="average"):
         """Loads the pre-trained VGG19 convolution layers from the PyTorch vision module.
         """
-        super(VGG19, self).__init__()
+        super(VGG19Encoder, self).__init__()
 
-        vgg19 = torchvision.models.vgg19(pretrained=False)
-        self.features = vgg19.features
+        self.features = torch.nn.Sequential(
+            collections.OrderedDict(
+                [
+                    ("0_0", NormLayer((1, 3, 1, 1), direction="encode")),
+                    ("1_1", ConvLayer(3, 64)),
+                    ("1_2", ConvLayer(64, 64)),
+                    ("2_1", ConvLayer(64, 128, scale="average")),
+                    ("2_2", ConvLayer(128, 128)),
+                    ("3_1", ConvLayer(128, 256, scale="average")),
+                    ("3_2", ConvLayer(256, 256)),
+                    ("3_3", ConvLayer(256, 256)),
+                    ("3_4", ConvLayer(256, 256)),
+                    ("4_1", ConvLayer(256, 512, scale="average")),
+                    ("4_2", ConvLayer(512, 512)),
+                    ("4_3", ConvLayer(512, 512)),
+                    ("4_4", ConvLayer(512, 512)),
+                    ("5_1", ConvLayer(512, 512, scale="average")),
+                    ("5_2", ConvLayer(512, 512)),
+                    ("5_3", ConvLayer(512, 512)),
+                    ("5_4", ConvLayer(512, 512)),
+                ]
+            )
+        )
 
-        filename = download_to_file("vgg19_conv", "82d94367d0081bc1c2f4fca86b25f77f")
+        filename = download_to_file("vgg19_enc", "6cbccfc92ca1be3c4ac96d7da2df3dcf")
         self.load_state_dict(torch.load(filename))
 
-        for i, f in enumerate(self.features):
-            if isinstance(f, torch.nn.MaxPool2d):
-                if pooling == "average":
-                    self.features[i] = torch.nn.AvgPool2d(f.kernel_size, f.stride)
 
-        self.stmean = torch.nn.Parameter(
-            torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
-        )
-        self.stddev = torch.nn.Parameter(
-            torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
+class VGG19Decoder(torch.nn.Module):
+    def __init__(self):
+        """Loads the pre-trained VGG19 convolution layers from the PyTorch vision module.
+        """
+        super(VGG19Decoder, self).__init__()
+
+        self.features = torch.nn.Sequential(
+            collections.OrderedDict(
+                [
+                    ("5_3", ConvLayer(512, 512, activation="ReLU")),
+                    ("5_2", ConvLayer(512, 512, activation="ReLU")),
+                    ("5_1", ConvLayer(512, 512, activation="ReLU")),
+                    ("4_4", ConvLayer(512, 512, scale="reshuffle", activation="ReLU")),
+                    ("4_3", ConvLayer(512, 512, activation="ReLU")),
+                    ("4_2", ConvLayer(512, 512, activation="ReLU")),
+                    ("4_1", ConvLayer(512, 512, activation="ReLU")),
+                    ("3_4", ConvLayer(512, 256, scale="reshuffle", activation="ReLU")),
+                    ("3_3", ConvLayer(256, 256, activation="ReLU")),
+                    ("3_2", ConvLayer(256, 256, activation="ReLU")),
+                    ("3_1", ConvLayer(256, 256, activation="ReLU")),
+                    ("2_2", ConvLayer(256, 128, scale="reshuffle", activation="ReLU")),
+                    ("2_1", ConvLayer(128, 128, activation="ReLU")),
+                    ("1_2", ConvLayer(128, 64, scale="reshuffle", activation="ReLU")),
+                    ("1_1", ConvLayer(64, 64, activation="ReLU")),
+                    ("1_0", ConvLayer(64, 3, activation=None)),
+                    ("0_0", NormLayer((1, 3, 1, 1), direction="decode")),
+                ]
+            )
         )
 
-    def extract(self, image, layers: set):  # {1, 6, 11, 20, 29}:
-        """Preprocess an image to be compatible with pre-trained model, and return required features.
+    def rebuild(self, data, layers: set, start: str):
+        """Convert features extracted from the encoder and turn them into an image.
         """
         if len(layers) == 0:
             return
 
-        image = ((image * 0.25 + 0.5) - self.stmean) / self.stddev
-        for i in range(max(layers) + 1):
-            image = self.features[i].forward(image)
-            if i in layers:
-                yield i, image
+        names = list(self.features._modules.keys())
+        indices = [names.index(l) for l in layers]
+
+        for i in range(names.index(start), max(indices) + 1):
+            data = self.features[i].forward(data)
+            if i in indices:
+                yield names[i], data
