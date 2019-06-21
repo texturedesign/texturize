@@ -17,6 +17,7 @@ def download_to_file(model, hexdigest):
     if os.path.exists(filename):
         return filename
 
+    os.makedirs("data", exist_ok=True)
     response = urllib.request.urlopen(f"{DATA_URL}/{model}.model.bz2")
 
     widgets = [
