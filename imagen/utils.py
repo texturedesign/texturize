@@ -6,8 +6,10 @@ import torch
 def torch_flatten_1d(a):
     return a.contiguous().view(a.nelement())
 
+
 def torch_flatten_2d(a):
     return a.contiguous().view(a.shape[:2] + (-1,))
+
 
 def torch_gather_2d(array, indices):
     """Extract the content of an array using the 2D coordinates provided.
@@ -18,8 +20,11 @@ def torch_gather_2d(array, indices):
     x = torch.index_select(torch_flatten_2d(array), 2, torch_flatten_1d(idx))
     return x.view(array.shape[:2] + indices.shape[-2:])
 
+
 def torch_pad_replicate(array, padding):
-    return torch.nn.functional.pad(array, padding, mode='replicate')
+    assert isinstance(padding, tuple)
+    return torch.nn.functional.pad(array, pad=padding, mode="replicate")
+
 
 def torch_interp(array, xs, ys):
     result = torch.zeros_like(array)
@@ -29,13 +34,21 @@ def torch_interp(array, xs, ys):
             continue
 
         sliced = yn + ((array - xn) / (xm - xn)) * (ym - yn)
-        result += torch.where(xn <= array, torch.where(array < xm, sliced, torch.tensor(0.0)), torch.tensor(0.0))
+        result += torch.where(
+            xn <= array,
+            torch.where(array < xm, sliced, torch.tensor(0.0)),
+            torch.tensor(0.0),
+        )
+
+    result += torch.where(xm == array, array * 0.0 + ym, torch.tensor(0.0))
     return result
+
 
 def torch_mean(array, dims):
     for d in dims:
         array = torch.mean(array, dim=d, keepdim=True)
     return array
+
 
 def torch_std(array, dims):
     remaining = tuple(set(range(array.dim())) - set(dims))
@@ -51,10 +64,12 @@ def torch_std(array, dims):
         shape[d] = 1
     return copy.view(tuple(shape))
 
+
 def torch_min(array, dims):
     for d in dims:
         array = torch.min(array, dim=d, keepdim=True)[0]
     return array
+
 
 def torch_max(array, dims):
     for d in dims:
