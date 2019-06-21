@@ -5,7 +5,6 @@ import torch.nn.functional as F
 
 
 class ImageOptimizer:
-
     def __init__(self):
         self.counter = 0
         self.image = None
@@ -24,7 +23,7 @@ class ImageOptimizer:
 
     def tick(self):
         self.lbfgs.zero_grad()
-        
+
         image = self.image.clamp(-2.0, +2.0)
         loss = self.evaluate(image)
         loss.backward()

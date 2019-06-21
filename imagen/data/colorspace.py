@@ -5,9 +5,7 @@ import torch
 from ..utils import torch_min, torch_max, torch_mean, torch_std
 
 
-
 class MinMeanMaxBuilder:
-
     def __init__(self, normalize=False):
         self.normalize = normalize
 
