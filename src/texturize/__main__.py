@@ -6,23 +6,23 @@ r"""                         _   _            _              _
  |_| |_|\___|\__,_|_|  \__,_|_|  \__\___/_/\_\\__|\__,_|_|  |_/___\___|
 
 Usage:
-    texturize SOURCE [--size=WxH] [--output=FILE]
+    texturize SOURCE [-s WxH] [-o FILE]
                      [--scales=S] [--precision=P] [--iterations=I]
     texturize --help
 
 Examples:
-    texturize samples/grass.webp --size=1440x960
+    texturize samples/grass.webp --size=1440x960 --output=result.png
     texturize samples/gravel.png --iterations=200 --precision=1e-6
     texturize samples/sand.tiff  --output=tmp/{source}-{scale}.webp
 
 Options:
-    SOURCE          Path to source image to use as texture.
-    --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
-    --scales=S      Number of scales to process. [default: 5]
-    --precision=P   Set the quality for the optimization. [default: 1e-5]
-    --iterations=I  Maximum number of iterations each octave. [default: 99]
-    --output=FILE   Filename for saving the result. [default: {source}_gen.png]
-    -h --help       Show this message.
+    SOURCE                  Path to source image to use as texture.
+    -s WxH, --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
+    --scales=S              Number of scales to process. [default: 5]
+    --precision=P           Set the quality for the optimization. [default: 1e-5]
+    --iterations=I          Maximum number of iterations each octave. [default: 99]
+    -o FILE, --output=FILE  Filename for saving the result. [default: {source}_gen.png]
+    -h --help               Show this message.
 
 """
 #
@@ -247,7 +247,12 @@ def run(config):
         print("<- scale:", f"1/{scale}")
 
         # Create downscaled version of original texture to match this octave.
-        texture_cur = F.interpolate(texture_img, scale_factor=1.0 / scale, mode="area")
+        texture_cur = F.interpolate(
+            texture_img,
+            scale_factor=1.0 / scale,
+            mode="area",
+            recompute_scale_factor=False,
+        )
         synth.prepare(critics, texture_cur)
         print("<- texture:", tuple(texture_cur.shape[2:]))
 
