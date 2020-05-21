@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "neural-texturize"
+version = "0.1.0"
+description = ""
+authors = ["Alex J. Champandard <445208+alexjc@users.noreply.github.com>"]
+license = "AGPL-3.0"
+packages = [
+    { include = "texturize", from = "src" },
+]
+
+[tool.poetry.scripts]
+texturize = 'texturize.__main__:main'
+
+[tool.poetry.dependencies]
+python = "^3.7"
+image-encoders = {path = "lib/image-encoders"}
+docopt = "^0.6.2"
+progressbar2 = "^3.51.3"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry>=1.0"]
+build-backend = "poetry.masonry.api"
