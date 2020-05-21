@@ -4,20 +4,16 @@ r"""                         _   _            _              _
  | '_ \ / _ \ | | | '__/ _` | | | __/ _ \ \/ / __| | | | '__| |_  / _ \
  | | | |  __/ |_| | | | (_| | | | ||  __/>  <| |_| |_| | |  | |/ /  __/
  |_| |_|\___|\__,_|_|  \__,_|_|  \__\___/_/\_\\__|\__,_|_|  |_/___\___|
-.
+
 Usage:
-    texturize SOURCE
-        [--size=WxH]
-        [--scales=S]
-        [--output=FILE]
-        [--precision=P]
-        [--iterations=I]
+    texturize SOURCE [--size=WxH] [--output=FILE]
+                     [--scales=S] [--precision=P] [--iterations=I]
     texturize --help
 
 Examples:
     texturize samples/grass.webp --size=1440x960
-    texturize samples/gravel.webp --iterations=200 --precision=1e-6
-    texturize samples/grate.web --output=tmp/{source}-{scale}.webp
+    texturize samples/gravel.png --iterations=200 --precision=1e-6
+    texturize samples/sand.tiff  --output=tmp/{source}-{scale}.webp
 
 Options:
     SOURCE          Path to source image to use as texture.
@@ -47,9 +43,10 @@ import progressbar
 import torch
 import torch.nn.functional as F
 
+from encoders import models
+
 from . import __version__
 from . import io
-from .encoders import models
 
 
 class GramMatrixCritic:
@@ -218,7 +215,7 @@ class ansi:
     ENDC = "\033[0m\033[49m"
 
 
-def main(config):
+def run(config):
     # Load the original image.
     texture_img = io.load_image_from_file(config["SOURCE"], device="cuda")
 
@@ -278,9 +275,13 @@ def main(config):
         print("\n=> output:", filename)
 
 
-if __name__ == "__main__":
+def main():
     print(ansi.PINK + "    " + __doc__[:356] + ansi.ENDC)
 
     config = docopt.docopt(__doc__[356:], version=__version__)
     with torch.no_grad():
-        main(config)
+        run(config)
+
+
+if __name__ == "__main__":
+    main()
