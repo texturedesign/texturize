@@ -1,0 +1,3 @@
+[submodule "lib/image-encoders"]
+	path = lib/image-encoders
+	url = https://github.com/photogeniq/image-encoders.git
