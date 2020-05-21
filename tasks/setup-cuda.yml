@@ -1,0 +1,11 @@
+channels:
+  - pytorch
+  - defaults
+dependencies:
+  - pip=20.0.2=py38_3
+  - python=3.8.3=he1778fa_0
+  - pytorch=1.5.0=py3.8_cuda102_cudnn7_0
+  - torchvision=0.6.0=py38_cu102
+  - pip:
+    - invoke==1.4.1
+    - poetry==1.0.5
