@@ -14,6 +14,7 @@ Examples:
     texturize samples/grass.webp --size=1440x960 --output=result.png
     texturize samples/gravel.png --iterations=200 --precision=1e-5
     texturize samples/sand.tiff  --output=tmp/{source}-{scale}.webp
+    texturize samples/brick.jpg  --device=cpu
 
 Options:
     SOURCE                  Path to source image to use as texture.
@@ -207,6 +208,8 @@ class TextureSynthesizer:
                 image.data.clamp_(0.0, 1.0)
                 # Return back to the user...
                 yield loss, image
+
+            progress.max_value = i
         finally:
             progress.finish()
 
@@ -222,7 +225,6 @@ class TextureSynthesizer:
             # See if we can terminate the optimization early.
             if previous is not None and abs(loss - previous) < self.precision:
                 assert i > 10, f"Optimization stalled at iteration {i}."
-                progress.max_value = i
                 break
 
             previous = loss
@@ -273,7 +275,7 @@ def run(config, source):
             scale_factor=1.0 / scale,
             mode="area",
             recompute_scale_factor=False,
-        )
+        ).to(config["--device"])
         synth.prepare(critics, texture_cur)
         print("<- texture:", tuple(texture_cur.shape[2:]))
 
