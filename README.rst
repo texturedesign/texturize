@@ -1,6 +1,8 @@
 neural-texturize
 ================
 
+.. image:: docs/dirt-x4.webp
+
 Automatically generate new textures similar to your source image.  Useful if you
 want to make variations on a theme or expand the size of an existing texture.
 
@@ -26,8 +28,8 @@ For details about the command-line options, see the tool itself:
 Here are the command-line options currently available::
 
     Usage:
-        texturize SOURCE [-s WxH] [-o FILE]
-                         [--scales=S] [--precision=P] [--iterations=I]
+        texturize SOURCE... [--size=WxH] [--output=FILE]
+                            [--scales=S] [--precision=P] [--iterations=I]
         texturize --help
 
     Options:
