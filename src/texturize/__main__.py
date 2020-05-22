@@ -199,29 +199,33 @@ class TextureSynthesizer:
             max_value=self.max_iter, widgets=widgets, variables={"loss": float("+inf")}
         )
 
+        try:
+            for i, loss in self._iterate(opt):
+                # Update the progress bar with the result!
+                progress.update(i, loss=loss)
+                # Constrain the image to the valid color range.
+                image.data.clamp_(0.0, 1.0)
+                # Return back to the user...
+                yield loss, image
+        finally:
+            progress.finish()
+
+    def _iterate(self, opt):
         previous = None
         for i in range(self.max_iter):
             # Perform one step of the optimization.
             loss = opt.step()
-            # Update the progress bar with the result!
-            progress.update(i, loss=loss)
 
-            with torch.no_grad():
-                # Constrain the image to the valid color range.
-                image.data.clamp_(0.0, 1.0)
+            # Return this iteration to the caller...
+            yield i, loss.item()
 
-                # Return this iteration to the caller...
-                yield loss.item(), image
+            # See if we can terminate the optimization early.
+            if previous is not None and abs(loss - previous) < self.precision:
+                assert i > 10, f"Optimization stalled at iteration {i}."
+                progress.max_value = i
+                break
 
-                # See if we can terminate the optimization early.
-                if previous is not None and abs(loss - previous) < self.precision:
-                    assert i > 10, f"Optimization stalled at iteration {i}."
-                    progress.max_value = i
-                    break
-
-                previous = loss
-
-        progress.finish()
+            previous = loss
 
 
 class ansi:
@@ -311,7 +315,11 @@ def main():
     files = itertools.chain.from_iterable(glob.glob(s) for s in config["SOURCE"])
     for filename in files:
         with torch.no_grad():
-            run(config, filename)
+            try:
+                run(config, filename)
+            except KeyboardInterrupt:
+                print(ansi.PINK + "\nCTRL+C detected, interrupting..." + ansi.ENDC)
+                break
 
 
 if __name__ == "__main__":
