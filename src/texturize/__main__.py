@@ -6,20 +6,21 @@ r"""                         _   _            _              _
  |_| |_|\___|\__,_|_|  \__,_|_|  \__\___/_/\_\\__|\__,_|_|  |_/___\___|
 
 Usage:
-    texturize SOURCE... [--size=WxH] [--output=FILE]
+    texturize SOURCE... [--size=WxH] [--output=FILE] [--device=DEVICE]
                         [--scales=S] [--precision=P] [--iterations=I]
     texturize --help
 
 Examples:
     texturize samples/grass.webp --size=1440x960 --output=result.png
-    texturize samples/gravel.png --iterations=200 --precision=1e-6
+    texturize samples/gravel.png --iterations=200 --precision=1e-5
     texturize samples/sand.tiff  --output=tmp/{source}-{scale}.webp
 
 Options:
     SOURCE                  Path to source image to use as texture.
     -s WxH, --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
+    --device DEVICE         Hardware to use, either "cpu" or "cuda".
     --scales=S              Number of scales to process. [default: 5]
-    --precision=P           Set the quality for the optimization. [default: 1e-5]
+    --precision=P           Set the quality for the optimization. [default: 1e-4]
     --iterations=I          Maximum number of iterations each octave. [default: 99]
     -o FILE, --output=FILE  Filename for saving the result. [default: {source}_gen.png]
     -h --help               Show this message.
@@ -163,7 +164,8 @@ class MultiCriticObjective:
 
 
 class TextureSynthesizer:
-    def __init__(self, encoder, lr, precision, max_iter):
+    def __init__(self, device, encoder, lr, precision, max_iter):
+        self.device = device
         self.encoder = encoder
         self.lr = lr
         self.precision = precision
@@ -179,7 +181,7 @@ class TextureSynthesizer:
     def run(self, seed_img, critics):
         """Run the optimizer on the image according to the loss returned by the critics.
         """
-        image = seed_img.to("cuda").requires_grad_(True)
+        image = seed_img.to(self.device).requires_grad_(True)
 
         obj = MultiCriticObjective(self.encoder, critics)
         opt = SolverLBFGS(obj, image, lr=self.lr)
@@ -231,27 +233,28 @@ class ansi:
 
 def run(config, source):
     # Load the original image.
-    texture_img = io.load_image_from_file(source, device="cuda")
+    texture_img = io.load_image_from_file(source, device="cpu")
 
     # Configure the critics.
     critics = [GramMatrixCritic(layer=l) for l in ("1_1", "2_1", "3_1")]
 
     # Encoder used by all the critics.
     encoder = models.VGG11(pretrained=True, pool_type=torch.nn.AvgPool2d)
-    encoder = encoder.to("cuda", dtype=torch.float32)
+    encoder = encoder.to(config["--device"], dtype=torch.float32)
 
     # Generate the starting image for the optimization.
     scales = int(config["--scales"])
     result_sz = list(map(int, config["--size"].split("x")))[::-1]
     result_img = torch.empty(
         (1, 3, result_sz[0] // 2 ** (scales + 1), result_sz[1] // 2 ** (scales + 1)),
-        device="cuda",
+        device=config["--device"],
         dtype=torch.float32,
     ).uniform_(0.4, 0.6)
 
     for i, scale in enumerate(2 ** s for s in range(scales, -1, -1)):
         # Each octave we start a new optimization process.
         synth = TextureSynthesizer(
+            config["--device"],
             encoder,
             lr=1.0,
             precision=float(config["--precision"]),
@@ -295,12 +298,19 @@ def run(config, source):
 
 
 def main():
+    # Parse the command-line options based on the script's documentation.
     print(ansi.PINK + "    " + __doc__[:356] + ansi.ENDC)
-
     config = docopt.docopt(__doc__[356:], version=__version__)
-    with torch.no_grad():
-        files = itertools.chain.from_iterable(glob.glob(s) for s in config["SOURCE"])
-        for filename in files:
+
+    # Determine which device to use by default, then set it up.
+    if config["--device"] is None:
+        config["--device"] = "cuda" if torch.cuda.is_available() else "cpu"
+    config["--device"] = torch.device(config["--device"])
+
+    # Scan all the files based on the patterns specified.
+    files = itertools.chain.from_iterable(glob.glob(s) for s in config["SOURCE"])
+    for filename in files:
+        with torch.no_grad():
             run(config, filename)
 
 
