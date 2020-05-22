@@ -53,8 +53,8 @@ from . import io
 class GramMatrixCritic:
     """A `Critic` evaluates the features of an image to determine how it scores.
 
-    This is a gram-based critic that computes a 2D histogram of feature cross-correlations for
-    a specific layer, and compares it to the target gram matrix.
+    This critic computes a 2D histogram of feature cross-correlations for a specific
+    layer, and compares it to the target gram matrix.
     """
 
     def __init__(self, layer, offset: float = -1.0):
@@ -102,24 +102,35 @@ class SolverLBFGS:
     def __init__(self, objective, image, lr=1.0):
         self.objective = objective
         self.image = image
+        self.lr = lr
         self.optimizer = torch.optim.LBFGS(
             [image], lr=lr, max_iter=2, max_eval=4, history_size=10
         )
         self.scores = []
+        self.iteration = 1
 
     def step(self):
+        # The first 10 iterations, we increase the learning rate slowly to full value.
+        for group in self.optimizer.param_groups:
+            group["lr"] = self.lr * min(self.iteration / 10.0, 1.0) ** 2
+
+        # Each iteration we reset the accumulated gradients and compute the objective.
         def _wrap():
+            self.iteration += 1
             self.optimizer.zero_grad()
             return self.objective(self.image)
 
+        # This optimizer decides when and how to call the objective.
         return self.optimizer.step(_wrap)
 
 
 class MultiCriticObjective:
-    """An `Objective` that defines a problem by evaluating possible solutions (i.e. images).
+    """An `Objective` that defines a problem to be solved by evaluating candidate
+    solutions (i.e. images) and returning an error.
 
-    This objective evaluates a list of critics to produce a final "loss" that's the sum of all the
-    scores returned by the critics.  It's also responsible for computing the gradients.
+    This objective evaluates a list of critics to produce a final "loss" that's the sum
+    of all the scores returned by the critics.  It's also responsible for computing the
+    gradients.
     """
 
     def __init__(self, encoder, critics):
@@ -127,8 +138,8 @@ class MultiCriticObjective:
         self.critics = critics
 
     def __call__(self, image):
-        """Main evaluation function that's called by the solver.  Processes the image, computes the
-        gradients, and returns the loss.
+        """Main evaluation function that's called by the solver.  Processes the image,
+        computes the gradients, and returns the loss.
         """
 
         image.data.clamp_(0.0, 1.0)
@@ -202,8 +213,10 @@ class TextureSynthesizer:
 
                 # See if we can terminate the optimization early.
                 if previous is not None and abs(loss - previous) < self.precision:
+                    assert i > 10, f"Optimization stalled at iteration {i}."
                     progress.max_value = i
                     break
+
                 previous = loss
 
         progress.finish()
@@ -240,7 +253,7 @@ def run(config, source):
         # Each octave we start a new optimization process.
         synth = TextureSynthesizer(
             encoder,
-            lr=0.5,
+            lr=1.0,
             precision=float(config["--precision"]),
             max_iter=int(config["--iterations"]),
         )
@@ -260,7 +273,7 @@ def run(config, source):
         # Compute the seed image for this octave, sprinkling a bit of gaussian noise.
         size = result_sz[0] // scale, result_sz[1] // scale
         seed_img = F.interpolate(result_img, size, mode="bicubic", align_corners=False)
-        seed_img += torch.empty_like(seed_img, dtype=torch.float32).normal_(std=0.1)
+        seed_img += torch.empty_like(seed_img, dtype=torch.float32).normal_(std=0.2)
         print("<- seed:", tuple(seed_img.shape[2:]), end="\n\n")
         del result_img
 
