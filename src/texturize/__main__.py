@@ -223,7 +223,7 @@ class TextureSynthesizer:
             yield i, loss.item()
 
             # See if we can terminate the optimization early.
-            if previous is not None and abs(loss - previous) < self.precision:
+            if i > 1 and abs(loss - previous) < self.precision:
                 assert i > 10, f"Optimization stalled at iteration {i}."
                 break
 
