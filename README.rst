@@ -17,6 +17,7 @@ captures the style of the original.  Here are some examples:
     texturize samples/grass.webp --size=1440x960 --output=result.png
     texturize samples/gravel.png --iterations=200 --precision=1e-6
     texturize samples/sand.tiff  --output=tmp/sand-{scale}.webp
+    texturize samples/brick.jpg  --device=cpu
 
 
 For details about the command-line options, see the tool itself:
@@ -28,15 +29,16 @@ For details about the command-line options, see the tool itself:
 Here are the command-line options currently available::
 
     Usage:
-        texturize SOURCE... [--size=WxH] [--output=FILE]
+        texturize SOURCE... [--size=WxH] [--output=FILE] [--device=DEVICE]
                             [--scales=S] [--precision=P] [--iterations=I]
         texturize --help
 
     Options:
         SOURCE                  Path to source image to use as texture.
         -s WxH, --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
+        --device DEVICE         Hardware to use, either "cpu" or "cuda".
         --scales=S              Number of scales to process. [default: 5]
-        --precision=P           Set the quality for the optimization. [default: 1e-5]
+        --precision=P           Set the quality for the optimization. [default: 1e-4]
         --iterations=I          Maximum number of iterations each octave. [default: 99]
         -o FILE, --output=FILE  Filename for saving the result. [default: {source}_gen.png]
         -h --help               Show this message.
@@ -54,12 +56,17 @@ dependencies are available:
 
 Then, you can create a new virtual environment called ``myenv`` by installing
 `Miniconda <https://docs.conda.io/en/latest/miniconda.html>`_ and calling the following
-commands:
+commands, depending whether you want to run on CPU or GPU (via CUDA):
 
 .. code-block:: bash
 
     cd neural-texturize
+
+    # a) Use this if you have an *Nvidia GPU only*.
     conda env create -n myenv -f tasks/setup-cuda.yml
+
+    # b) Fallback if you just want to run on CPU.
+    conda env create -n myenv -f tasks/setup-cpu.yml
 
 Once the virtual environment is created, you can activate it and finish the setup of
 ``neural-texturize`` with these commands:
