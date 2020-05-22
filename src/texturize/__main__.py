@@ -6,8 +6,8 @@ r"""                         _   _            _              _
  |_| |_|\___|\__,_|_|  \__,_|_|  \__\___/_/\_\\__|\__,_|_|  |_/___\___|
 
 Usage:
-    texturize SOURCE [-s WxH] [-o FILE]
-                     [--scales=S] [--precision=P] [--iterations=I]
+    texturize SOURCE... [--size=WxH] [--output=FILE]
+                        [--scales=S] [--precision=P] [--iterations=I]
     texturize --help
 
 Examples:
@@ -35,6 +35,7 @@ Options:
 #
 
 import os
+import glob
 import itertools
 
 import docopt
@@ -215,9 +216,9 @@ class ansi:
     ENDC = "\033[0m\033[49m"
 
 
-def run(config):
+def run(config, source):
     # Load the original image.
-    texture_img = io.load_image_from_file(config["SOURCE"], device="cuda")
+    texture_img = io.load_image_from_file(source, device="cuda")
 
     # Configure the critics.
     critics = [GramMatrixCritic(layer=l) for l in ("1_1", "2_1", "3_1")]
@@ -272,7 +273,7 @@ def run(config):
         # Save the files for each octave to disk.
         result_img = result_img.cpu()
         filename = config["--output"].format(
-            scale=scale, source=os.path.splitext(os.path.basename(config["SOURCE"]))[0]
+            scale=scale, source=os.path.splitext(os.path.basename(source))[0]
         )
         io.save_image_to_file(
             F.interpolate(result_img, size=result_sz, mode="nearest"), filename
@@ -285,7 +286,9 @@ def main():
 
     config = docopt.docopt(__doc__[356:], version=__version__)
     with torch.no_grad():
-        run(config)
+        files = itertools.chain.from_iterable(glob.glob(s) for s in config["SOURCE"])
+        for filename in files:
+            run(config, filename)
 
 
 if __name__ == "__main__":
