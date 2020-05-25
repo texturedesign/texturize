@@ -55,12 +55,15 @@ from . import io
 class GramMatrixCritic:
     """A `Critic` evaluates the features of an image to determine how it scores.
 
-    This critic computes a 2D histogram of feature cross-correlations for a specific
-    layer, and compares it to the target gram matrix.
+    This critic computes a 2D histogram of feature cross-correlations for the specified
+    layer (e.g. "1_1") or layer pair (e.g. "1_1:2_1"), and compares it to the target
+    gram matrix.
     """
 
     def __init__(self, layer, offset: float = -1.0):
-        self.layer = layer
+        self.pair = tuple(layer.split(":"))
+        if len(self.pair) == 1:
+            self.pair = (self.pair[0], self.pair[0])
         self.offset = offset
         self.gram = None
 
@@ -72,7 +75,7 @@ class GramMatrixCritic:
         self.gram = self._prepare_gram(features)
 
     def get_layers(self):
-        return {self.layer}
+        return set(self.pair)
 
     def _gram_matrix(self, column, row):
         (b, ch, h, w) = column.size()
@@ -86,8 +89,11 @@ class GramMatrixCritic:
         return gram
 
     def _prepare_gram(self, features):
-        f = features[self.layer] + self.offset
-        return self._gram_matrix(f, f)
+        lower = features[self.pair[0]] + self.offset
+        upper = features[self.pair[1]] + self.offset
+        return self._gram_matrix(
+            lower, F.interpolate(upper, size=lower.shape[2:], mode="nearest")
+        )
 
 
 def get_all_layers(critics):
@@ -242,7 +248,9 @@ def run(config, source):
     texture_img = io.load_image_from_file(source, device="cpu")
 
     # Configure the critics.
-    critics = [GramMatrixCritic(layer=l) for l in ("1_1", "2_1", "3_1")]
+    critics = [
+        GramMatrixCritic(layer=l) for l in ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
+    ]
 
     # Encoder used by all the critics.
     encoder = models.VGG11(pretrained=True, pool_type=torch.nn.AvgPool2d)
