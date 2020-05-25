@@ -6,21 +6,20 @@ r"""                         _   _            _              _
  |_| |_|\___|\__,_|_|  \__,_|_|  \__\___/_/\_\\__|\__,_|_|  |_/___\___|
 
 Usage:
-    texturize SOURCE... [--size=WxH] [--output=FILE] [--device=DEVICE]
-                        [--scales=S] [--precision=P] [--iterations=I]
+                        [--octaves=O] [--precision=P] [--iterations=I]
     texturize --help
 
 Examples:
     texturize samples/grass.webp --size=1440x960 --output=result.png
     texturize samples/gravel.png --iterations=200 --precision=1e-5
-    texturize samples/sand.tiff  --output=tmp/{source}-{scale}.webp
+    texturize samples/sand.tiff  --output=tmp/{source}-{octave}.webp
     texturize samples/brick.jpg  --device=cpu
 
 Options:
     SOURCE                  Path to source image to use as texture.
     -s WxH, --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
-    --device DEVICE         Hardware to use, either "cpu" or "cuda".
-    --scales=S              Number of scales to process. [default: 5]
+    --device=DEVICE         Hardware to use, either "cpu" or "cuda".
+    --octaves=O             Number of octaves to process. [default: 5]
     --precision=P           Set the quality for the optimization. [default: 1e-4]
     --iterations=I          Maximum number of iterations each octave. [default: 99]
     -o FILE, --output=FILE  Filename for saving the result. [default: {source}_gen.png]
@@ -257,15 +256,15 @@ def run(config, source):
     encoder = encoder.to(config["--device"], dtype=torch.float32)
 
     # Generate the starting image for the optimization.
-    scales = int(config["--scales"])
+    octaves = int(config["--octaves"])
     result_sz = list(map(int, config["--size"].split("x")))[::-1]
     result_img = torch.empty(
-        (1, 3, result_sz[0] // 2 ** (scales + 1), result_sz[1] // 2 ** (scales + 1)),
+        (1, 3, result_sz[0] // 2 ** (octaves + 1), result_sz[1] // 2 ** (octaves + 1)),
         device=config["--device"],
         dtype=torch.float32,
     ).uniform_(0.4, 0.6)
 
-    for i, scale in enumerate(2 ** s for s in range(scales, -1, -1)):
+    for i, octave in enumerate(2 ** s for s in range(octaves - 1, -1, -1)):
         # Each octave we start a new optimization process.
         synth = TextureSynthesizer(
             config["--device"],
@@ -275,12 +274,12 @@ def run(config, source):
             max_iter=int(config["--iterations"]),
         )
         print(ansi.BLACK + "\n OCTAVE", f"#{i} " + ansi.ENDC)
-        print("<- scale:", f"1/{scale}")
+        print("<- scale:", f"1/{octave}")
 
         # Create downscaled version of original texture to match this octave.
         texture_cur = F.interpolate(
             texture_img,
-            scale_factor=1.0 / scale,
+            scale_factor=1.0 / octave,
             mode="area",
             recompute_scale_factor=False,
         ).to(config["--device"])
@@ -288,7 +287,7 @@ def run(config, source):
         print("<- texture:", tuple(texture_cur.shape[2:]))
 
         # Compute the seed image for this octave, sprinkling a bit of gaussian noise.
-        size = result_sz[0] // scale, result_sz[1] // scale
+        size = result_sz[0] // octave, result_sz[1] // octave
         seed_img = F.interpolate(result_img, size, mode="bicubic", align_corners=False)
         seed_img += torch.empty_like(seed_img, dtype=torch.float32).normal_(std=0.2)
         print("<- seed:", tuple(seed_img.shape[2:]), end="\n\n")
@@ -303,7 +302,7 @@ def run(config, source):
         # Save the files for each octave to disk.
         result_img = result_img.cpu()
         filename = config["--output"].format(
-            scale=scale, source=os.path.splitext(os.path.basename(source))[0]
+            octave=octave, source=os.path.splitext(os.path.basename(source))[0]
         )
         io.save_image_to_file(
             F.interpolate(result_img, size=result_sz, mode="nearest"), filename
