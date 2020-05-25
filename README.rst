@@ -15,8 +15,8 @@ captures the style of the original.  Here are some examples:
 .. code-block:: bash
 
     texturize samples/grass.webp --size=1440x960 --output=result.png
-    texturize samples/gravel.png --iterations=200 --precision=1e-6
-    texturize samples/sand.tiff  --output=tmp/sand-{scale}.webp
+    texturize samples/gravel.png --iterations=200 --precision=1e-5
+    texturize samples/sand.tiff  --output=tmp/{source}-{octave}.webp
     texturize samples/brick.jpg  --device=cpu
 
 
@@ -29,15 +29,17 @@ For details about the command-line options, see the tool itself:
 Here are the command-line options currently available::
 
     Usage:
-        texturize SOURCE... [--size=WxH] [--output=FILE] [--device=DEVICE]
-                            [--scales=S] [--precision=P] [--iterations=I]
+        texturize SOURCE... [--size=WxH] [--output=FILE] [--seed=SEED] [--device=DEVICE]
+                            [--octaves=O] [--precision=P] [--iterations=I]
         texturize --help
+
 
     Options:
         SOURCE                  Path to source image to use as texture.
         -s WxH, --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
-        --device DEVICE         Hardware to use, either "cpu" or "cuda".
-        --scales=S              Number of scales to process. [default: 5]
+        --seed=SEED             Configure the random number generation.
+        --device=DEVICE         Hardware to use, either "cpu" or "cuda".
+        --octaves=O             Number of octaves to process. [default: 5]
         --precision=P           Set the quality for the optimization. [default: 1e-4]
         --iterations=I          Maximum number of iterations each octave. [default: 99]
         -o FILE, --output=FILE  Filename for saving the result. [default: {source}_gen.png]
@@ -82,4 +84,5 @@ Finally, you can check if everything worked by calling the script:
 
     texturize
 
-You can use ``conda env remove`` to delete the virtual environment once you are done.
+You can use ``conda env remove -n myenv`` to delete the virtual environment once you
+are done.
