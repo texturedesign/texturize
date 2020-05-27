@@ -1,3 +1,3 @@
 # neural-texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
-__version__ = "0.1"
+__version__ = "0.2"
