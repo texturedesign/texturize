@@ -216,7 +216,7 @@ class TextureSynthesizer:
                 # Return back to the user...
                 yield loss, image
 
-            progress.max_value = i
+            progress.max_value = i + 1
         finally:
             progress.finish()
 
@@ -244,9 +244,20 @@ class ansi:
     ENDC = "\033[0m\033[49m"
 
 
-def run(config, source):
+def process_file(config, source):
+    for octave, result_img in process_image(config, io.load_image_from_file(source)):
+        # Save the files for each octave to disk.
+        filename = config["--output"].format(
+            octave=octave, source=os.path.splitext(os.path.basename(source))[0]
+        )
+        result_img.save(filename)
+        print("\n=> output:", filename)
+
+
+@torch.no_grad()
+def process_image(config, source):
     # Load the original image.
-    texture_img = io.load_image_from_file(source, device="cpu")
+    texture_img = io.load_tensor_from_image(source, device="cpu")
 
     # Configure the critics.
     critics = [
@@ -287,6 +298,7 @@ def run(config, source):
         ).to(config["--device"])
         synth.prepare(critics, texture_cur)
         print("<- texture:", tuple(texture_cur.shape[2:]))
+        del texture_cur
 
         # Compute the seed image for this octave, sprinkling a bit of gaussian noise.
         size = result_sz[0] // octave, result_sz[1] // octave
@@ -301,15 +313,9 @@ def run(config, source):
                 pass
         del synth
 
-        # Save the files for each octave to disk.
-        result_img = result_img.cpu()
-        filename = config["--output"].format(
-            octave=octave, source=os.path.splitext(os.path.basename(source))[0]
+        yield octave, io.save_tensor_to_image(
+            F.interpolate(result_img, size=result_sz, mode="nearest").cpu()
         )
-        io.save_image_to_file(
-            F.interpolate(result_img, size=result_sz, mode="nearest"), filename
-        )
-        print("\n=> output:", filename)
 
 
 def main():
@@ -334,7 +340,7 @@ def main():
         # By default, disable autograd until the core optimization loop.
         with torch.no_grad():
             try:
-                run(config, filename)
+                process_file(config, filename)
             except KeyboardInterrupt:
                 print(ansi.PINK + "\nCTRL+C detected, interrupting..." + ansi.ENDC)
                 break
