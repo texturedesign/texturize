@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "texturize"
-version = "0.2.0"
+version = "0.3.0"
 description = ""
 authors = ["Alex J. Champandard <445208+alexjc@users.noreply.github.com>"]
 license = "AGPL-3.0"
@@ -12,7 +12,7 @@ packages = [
 texturize = 'texturize.__main__:main'
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.6"
 image-encoders = {path = "lib/image-encoders"}
 docopt = "^0.6.2"
 progressbar2 = "^3.51.3"
