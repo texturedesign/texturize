@@ -8,6 +8,7 @@ r"""                         _   _            _              _
 Usage:
     texturize SOURCE... [--size=WxH] [--output=FILE] [--seed=SEED] [--device=DEVICE]
                         [--octaves=O] [--precision=P] [--iterations=I]
+                        [--quiet] [--verbose]
     texturize --help
 
 Examples:
@@ -19,12 +20,14 @@ Examples:
 Options:
     SOURCE                  Path to source image to use as texture.
     -s WxH, --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
+    -o FILE, --output=FILE  Filename for saving the result. [default: {source}_gen.png]
     --seed=SEED             Configure the random number generation.
     --device=DEVICE         Hardware to use, either "cpu" or "cuda".
     --octaves=O             Number of octaves to process. [default: 5]
     --precision=P           Set the quality for the optimization. [default: 1e-4]
     --iterations=I          Maximum number of iterations each octave. [default: 99]
-    -o FILE, --output=FILE  Filename for saving the result. [default: {source}_gen.png]
+    --quiet                 Suppress any messages going to stdout.
+    --verbose               Display more information on stdout.
     -h --help               Show this message.
 
 """
@@ -55,6 +58,36 @@ from . import __version__
 from . import io
 
 
+class OutputLog:
+
+    def __init__(self, config):
+        self.quiet = config['--quiet']
+        self.verbose = config['--verbose']
+
+    def create_progress_bar(self, iterations):
+        widgets = [
+            progressbar.SimpleProgress(),
+            " | ",
+            progressbar.Variable("loss", format="{name}: {value:0.3e}"),
+            " ",
+            progressbar.Bar(marker="■", fill="·"),
+            " ",
+            progressbar.ETA(),
+        ]
+        ProgressBar = progressbar.NullBar if self.quiet else progressbar.ProgressBar
+        return ProgressBar(
+            max_value=iterations, widgets=widgets, variables={"loss": float("+inf")}
+        )
+
+    def debug(self, *args):
+        if self.verbose:
+            print(*args)
+
+    def info(self, *args):
+        if not self.quiet:
+            print(*args)
+
+
 class TextureSynthesizer:
     def __init__(self, device, encoder, lr, precision, max_iter):
         self.device = device
@@ -70,7 +103,7 @@ class TextureSynthesizer:
         for critic in critics:
             critic.from_features(feats)
 
-    def run(self, seed_img, critics):
+    def run(self, logger, seed_img, critics):
         """Run the optimizer on the image according to the loss returned by the critics.
         """
         image = seed_img.to(self.device).requires_grad_(True)
@@ -78,18 +111,7 @@ class TextureSynthesizer:
         obj = MultiCriticObjective(self.encoder, critics)
         opt = SolverLBFGS(obj, image, lr=self.lr)
 
-        widgets = [
-            progressbar.SimpleProgress(),
-            " | ",
-            progressbar.Variable("loss", format="{name}: {value:0.3e}"),
-            " ",
-            progressbar.Bar(marker="■", fill="·"),
-            " ",
-            progressbar.ETA(),
-        ]
-        progress = progressbar.ProgressBar(
-            max_value=self.max_iter, widgets=widgets, variables={"loss": float("+inf")}
-        )
+        progress = logger.create_progress_bar(self.max_iter)
 
         try:
             for i, loss in self._iterate(opt):
@@ -129,13 +151,16 @@ class ansi:
 
 
 def process_file(config, source):
+    log = config['--logger']
     for octave, result_img in process_image(config, io.load_image_from_file(source)):
         # Save the files for each octave to disk.
         filename = config["--output"].format(
             octave=octave, source=os.path.splitext(os.path.basename(source))[0]
         )
         result_img.save(filename)
-        print("\n=> output:", filename)
+        log.debug("\n=> output:", filename)
+
+    return filename
 
 
 @torch.no_grad()
@@ -161,6 +186,8 @@ def process_image(config, source):
         dtype=torch.float32,
     ).uniform_(0.4, 0.6)
 
+    # Coarse-to-fine rendering, number of octaves specified by user.
+    log = config['--logger']
     for i, octave in enumerate(2 ** s for s in range(octaves - 1, -1, -1)):
         # Each octave we start a new optimization process.
         synth = TextureSynthesizer(
@@ -170,8 +197,8 @@ def process_image(config, source):
             precision=float(config["--precision"]),
             max_iter=int(config["--iterations"]),
         )
-        print(ansi.BLACK + "\n OCTAVE", f"#{i} " + ansi.ENDC)
-        print("<- scale:", f"1/{octave}")
+        log.info(ansi.BLACK + "\n OCTAVE", f"#{i} " + ansi.ENDC)
+        log.debug("<- scale:", f"1/{octave}")
 
         # Create downscaled version of original texture to match this octave.
         texture_cur = F.interpolate(
@@ -181,19 +208,19 @@ def process_image(config, source):
             recompute_scale_factor=False,
         ).to(config["--device"])
         synth.prepare(critics, texture_cur)
-        print("<- texture:", tuple(texture_cur.shape[2:]))
+        log.debug("<- texture:", tuple(texture_cur.shape[2:]))
         del texture_cur
 
         # Compute the seed image for this octave, sprinkling a bit of gaussian noise.
         size = result_sz[0] // octave, result_sz[1] // octave
         seed_img = F.interpolate(result_img, size, mode="bicubic", align_corners=False)
         seed_img += torch.empty_like(seed_img, dtype=torch.float32).normal_(std=0.2)
-        print("<- seed:", tuple(seed_img.shape[2:]), end="\n\n")
+        log.debug("<- seed:", tuple(seed_img.shape[2:]), "\n")
         del result_img
 
         # Now we can enable the automatic gradient computation to run the optimization.
         with torch.enable_grad():
-            for _, result_img in synth.run(seed_img, critics):
+            for _, result_img in synth.run(log, seed_img, critics):
                 pass
         del synth
 
@@ -204,8 +231,9 @@ def process_image(config, source):
 
 def main():
     # Parse the command-line options based on the script's documentation.
-    print(ansi.PINK + "    " + __doc__[:356] + ansi.ENDC)
     config = docopt.docopt(__doc__[356:], version=__version__)
+    config['--logger'] = log = OutputLog(config)
+    log.info(ansi.PINK + "    " + __doc__[:356] + ansi.ENDC)
 
     # Determine which device to use by default, then set it up.
     if config["--device"] is None:
@@ -224,7 +252,8 @@ def main():
         # By default, disable autograd until the core optimization loop.
         with torch.no_grad():
             try:
-                process_file(config, filename)
+                result = process_file(config, filename)
+                log.info(ansi.PINK + "\n=> result:", result, ansi.ENDC)
             except KeyboardInterrupt:
                 print(ansi.PINK + "\nCTRL+C detected, interrupting..." + ansi.ENDC)
                 break
