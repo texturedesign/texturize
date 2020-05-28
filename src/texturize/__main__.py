@@ -6,9 +6,9 @@ r"""                         _   _            _              _
  |_| |_|\___|\__,_|_|  \__,_|_|  \__\___/_/\_\\__|\__,_|_|  |_/___\___|
 
 Usage:
-    texturize SOURCE... [--size=WxH] [--output=FILE] [--seed=SEED] [--device=DEVICE]
+    texturize SOURCE... [--size=WxH] [--output=FILE] [--variations=V] [--seed=SEED]
                         [--octaves=O] [--precision=P] [--iterations=I]
-                        [--quiet] [--verbose]
+                        [--device=DEVICE] [--quiet] [--verbose]
     texturize --help
 
 Examples:
@@ -20,12 +20,14 @@ Examples:
 Options:
     SOURCE                  Path to source image to use as texture.
     -s WxH, --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
-    -o FILE, --output=FILE  Filename for saving the result. [default: {source}_gen.png]
+    -o FILE, --output=FILE  Filename for saving the result, includes format variables.
+                            [default: {source}_gen{variation}.png]
+    --variations=V          Number of images to generate at same time. [default: 1]
     --seed=SEED             Configure the random number generation.
-    --device=DEVICE         Hardware to use, either "cpu" or "cuda".
     --octaves=O             Number of octaves to process. [default: 5]
     --precision=P           Set the quality for the optimization. [default: 1e-4]
     --iterations=I          Maximum number of iterations each octave. [default: 99]
+    --device=DEVICE         Hardware to use, either "cpu" or "cuda".
     --quiet                 Suppress any messages going to stdout.
     --verbose               Display more information on stdout.
     -h --help               Show this message.
@@ -59,10 +61,9 @@ from . import io
 
 
 class OutputLog:
-
     def __init__(self, config):
-        self.quiet = config['--quiet']
-        self.verbose = config['--verbose']
+        self.quiet = config["--quiet"]
+        self.verbose = config["--verbose"]
 
     def create_progress_bar(self, iterations):
         widgets = [
@@ -151,16 +152,21 @@ class ansi:
 
 
 def process_file(config, source):
-    log = config['--logger']
+    log = config["--logger"]
     for octave, result_img in process_image(config, io.load_image_from_file(source)):
-        # Save the files for each octave to disk.
-        filename = config["--output"].format(
-            octave=octave, source=os.path.splitext(os.path.basename(source))[0]
-        )
-        result_img.save(filename)
-        log.debug("\n=> output:", filename)
+        filenames = []
+        for i, result in enumerate(result_img):
+            # Save the files for each octave to disk.
+            filename = config["--output"].format(
+                octave=octave,
+                source=os.path.splitext(os.path.basename(source))[0],
+                variation=i,
+            )
+            result.save(filename)
+            log.debug("\n=> output:", filename)
+            filenames.append(filename)
 
-    return filename
+    return filenames
 
 
 @torch.no_grad()
@@ -179,15 +185,20 @@ def process_image(config, source):
 
     # Generate the starting image for the optimization.
     octaves = int(config["--octaves"])
-    result_sz = list(map(int, config["--size"].split("x")))[::-1]
+    result_size = list(map(int, config["--size"].split("x")))[::-1]
     result_img = torch.empty(
-        (1, 3, result_sz[0] // 2 ** (octaves + 1), result_sz[1] // 2 ** (octaves + 1)),
+        (
+            int(config["--variations"]),
+            3,
+            result_size[0] // 2 ** (octaves + 1),
+            result_size[1] // 2 ** (octaves + 1),
+        ),
         device=config["--device"],
         dtype=torch.float32,
     ).uniform_(0.4, 0.6)
 
     # Coarse-to-fine rendering, number of octaves specified by user.
-    log = config['--logger']
+    log = config["--logger"]
     for i, octave in enumerate(2 ** s for s in range(octaves - 1, -1, -1)):
         # Each octave we start a new optimization process.
         synth = TextureSynthesizer(
@@ -212,7 +223,7 @@ def process_image(config, source):
         del texture_cur
 
         # Compute the seed image for this octave, sprinkling a bit of gaussian noise.
-        size = result_sz[0] // octave, result_sz[1] // octave
+        size = result_size[0] // octave, result_size[1] // octave
         seed_img = F.interpolate(result_img, size, mode="bicubic", align_corners=False)
         seed_img += torch.empty_like(seed_img, dtype=torch.float32).normal_(std=0.2)
         log.debug("<- seed:", tuple(seed_img.shape[2:]), "\n")
@@ -224,15 +235,17 @@ def process_image(config, source):
                 pass
         del synth
 
-        yield octave, io.save_tensor_to_image(
-            F.interpolate(result_img, size=result_sz, mode="nearest").cpu()
-        )
+        output_img = F.interpolate(result_img, size=result_size, mode="nearest").cpu()
+        yield octave, [
+            io.save_tensor_to_image(output_img[j : j + 1])
+            for j in range(output_img.shape[0])
+        ]
 
 
 def main():
     # Parse the command-line options based on the script's documentation.
     config = docopt.docopt(__doc__[356:], version=__version__)
-    config['--logger'] = log = OutputLog(config)
+    config["--logger"] = log = OutputLog(config)
     log.info(ansi.PINK + "    " + __doc__[:356] + ansi.ENDC)
 
     # Determine which device to use by default, then set it up.
