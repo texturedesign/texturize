@@ -49,126 +49,10 @@ import torch.nn.functional as F
 
 from encoders import models
 
+from .critics import GramMatrixCritic
+from .solvers import SolverLBFGS, MultiCriticObjective
 from . import __version__
 from . import io
-
-
-class GramMatrixCritic:
-    """A `Critic` evaluates the features of an image to determine how it scores.
-
-    This critic computes a 2D histogram of feature cross-correlations for the specified
-    layer (e.g. "1_1") or layer pair (e.g. "1_1:2_1"), and compares it to the target
-    gram matrix.
-    """
-
-    def __init__(self, layer, offset: float = -1.0):
-        self.pair = tuple(layer.split(":"))
-        if len(self.pair) == 1:
-            self.pair = (self.pair[0], self.pair[0])
-        self.offset = offset
-        self.gram = None
-
-    def evaluate(self, features):
-        current = self._prepare_gram(features)
-        yield 1e4 * F.mse_loss(current, self.gram, reduction="mean")
-
-    def from_features(self, features):
-        self.gram = self._prepare_gram(features)
-
-    def get_layers(self):
-        return set(self.pair)
-
-    def _gram_matrix(self, column, row):
-        (b, ch, h, w) = column.size()
-        f_c = column.view(b, ch, w * h)
-        (b, ch, h, w) = row.size()
-        f_r = row.view(b, ch, w * h)
-
-        gram = (f_c / w).bmm((f_r / h).transpose(1, 2)) / ch
-        assert not torch.isnan(gram).any()
-
-        return gram
-
-    def _prepare_gram(self, features):
-        lower = features[self.pair[0]] + self.offset
-        upper = features[self.pair[1]] + self.offset
-        return self._gram_matrix(
-            lower, F.interpolate(upper, size=lower.shape[2:], mode="nearest")
-        )
-
-
-def get_all_layers(critics):
-    """Determine the minimal list of features that needs to be extracted from the image.
-    """
-    layers = set(itertools.chain.from_iterable(c.get_layers() for c in critics))
-    return sorted(list(layers))
-
-
-class SolverLBFGS:
-    """Encapsulate the L-BFGS optimizer from PyTorch with a standard interface.
-    """
-
-    def __init__(self, objective, image, lr=1.0):
-        self.objective = objective
-        self.image = image
-        self.lr = lr
-        self.optimizer = torch.optim.LBFGS(
-            [image], lr=lr, max_iter=2, max_eval=4, history_size=10
-        )
-        self.scores = []
-        self.iteration = 1
-
-    def step(self):
-        # The first 10 iterations, we increase the learning rate slowly to full value.
-        for group in self.optimizer.param_groups:
-            group["lr"] = self.lr * min(self.iteration / 10.0, 1.0) ** 2
-
-        # Each iteration we reset the accumulated gradients and compute the objective.
-        def _wrap():
-            self.iteration += 1
-            self.optimizer.zero_grad()
-            return self.objective(self.image)
-
-        # This optimizer decides when and how to call the objective.
-        return self.optimizer.step(_wrap)
-
-
-class MultiCriticObjective:
-    """An `Objective` that defines a problem to be solved by evaluating candidate
-    solutions (i.e. images) and returning an error.
-
-    This objective evaluates a list of critics to produce a final "loss" that's the sum
-    of all the scores returned by the critics.  It's also responsible for computing the
-    gradients.
-    """
-
-    def __init__(self, encoder, critics):
-        self.encoder = encoder
-        self.critics = critics
-
-    def __call__(self, image):
-        """Main evaluation function that's called by the solver.  Processes the image,
-        computes the gradients, and returns the loss.
-        """
-
-        image.data.clamp_(0.0, 1.0)
-
-        # Extract features from image.
-        feats = dict(self.encoder.extract(image, get_all_layers(self.critics)))
-
-        # Apply all the critics one by one.
-        scores = []
-        for critic in self.critics:
-            total = 0.0
-            for loss in critic.evaluate(feats):
-                total += loss
-            scores.append(total)
-
-        # Calculate the final loss and compute the gradients.
-        loss = sum(scores) / len(scores)
-        loss.backward()
-
-        return loss
 
 
 class TextureSynthesizer:
@@ -182,7 +66,7 @@ class TextureSynthesizer:
     def prepare(self, critics, image):
         """Extract the features from the source texture and initialize the critics.
         """
-        feats = dict(self.encoder.extract(image, get_all_layers(critics)))
+        feats = dict(self.encoder.extract(image, [c.get_layers() for c in critics]))
         for critic in critics:
             critic.from_features(feats)
 
