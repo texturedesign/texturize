@@ -7,7 +7,7 @@ r"""                         _   _            _              _
 
 Usage:
     texturize SOURCE... [--size=WxH] [--output=FILE] [--variations=V] [--seed=SEED]
-                        [--octaves=O] [--precision=P] [--iterations=I]
+                        [--mode=MODE] [--octaves=O] [--precision=P] [--iterations=I]
                         [--device=DEVICE] [--quiet] [--verbose]
     texturize --help
 
@@ -24,6 +24,7 @@ Options:
                             [default: {source}_gen{variation}.png]
     --variations=V          Number of images to generate at same time. [default: 1]
     --seed=SEED             Configure the random number generation.
+    --mode=MODE             Either "patch" or "gram" to specify critics. [default: gram]
     --octaves=O             Number of octaves to process. [default: 5]
     --precision=P           Set the quality for the optimization. [default: 1e-4]
     --iterations=I          Maximum number of iterations each octave. [default: 99]
@@ -54,7 +55,7 @@ import torch.nn.functional as F
 
 from encoders import models
 
-from .critics import GramMatrixCritic
+from .critics import GramMatrixCritic, PatchCritic
 from .solvers import SolverLBFGS, MultiCriticObjective
 from . import __version__
 from . import io
@@ -175,9 +176,15 @@ def process_image(config, source):
     texture_img = io.load_tensor_from_image(source, device="cpu")
 
     # Configure the critics.
-    critics = [
-        GramMatrixCritic(layer=l) for l in ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
-    ]
+    if config["--mode"] == "patch":
+        critics = [PatchCritic(layer=l) for l in ("1_1", "2_1", "3_1")]
+        config["--noise"] = 0.0
+    else:
+        critics = [
+            GramMatrixCritic(layer=l)
+            for l in ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
+        ]
+        config["--noise"] = 0.2
 
     # Encoder used by all the critics.
     encoder = models.VGG11(pretrained=True, pool_type=torch.nn.AvgPool2d)
@@ -225,7 +232,8 @@ def process_image(config, source):
         # Compute the seed image for this octave, sprinkling a bit of gaussian noise.
         size = result_size[0] // octave, result_size[1] // octave
         seed_img = F.interpolate(result_img, size, mode="bicubic", align_corners=False)
-        seed_img += torch.empty_like(seed_img, dtype=torch.float32).normal_(std=0.2)
+        if config['--noise'] > 0.0:
+            seed_img += torch.empty_like(seed_img).normal_(std=config['--noise'])
         log.debug("<- seed:", tuple(seed_img.shape[2:]), "\n")
         del result_img
 
