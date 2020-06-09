@@ -34,7 +34,7 @@ class SolverLBFGS:
 
 class MultiCriticObjective:
     """An `Objective` that defines a problem to be solved by evaluating candidate
-    solutions (i.e. images) and returning an error.
+    solutions (i.e. images) and returning the computed error.
 
     This objective evaluates a list of critics to produce a final "loss" that's the sum
     of all the scores returned by the critics.  It's also responsible for computing the
@@ -67,4 +67,4 @@ class MultiCriticObjective:
         loss = sum(scores) / len(scores)
         loss.backward()
 
-        return loss
+        return loss.item()

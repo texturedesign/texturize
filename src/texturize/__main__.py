@@ -135,7 +135,7 @@ class TextureSynthesizer:
             loss = opt.step()
 
             # Return this iteration to the caller...
-            yield i, loss.item()
+            yield i, loss
 
             # See if we can terminate the optimization early.
             if i > 1 and abs(loss - previous) < self.precision:
@@ -248,6 +248,7 @@ def process_image(config, source):
             io.save_tensor_to_image(output_img[j : j + 1])
             for j in range(output_img.shape[0])
         ]
+        del output_img
 
 
 def main():
