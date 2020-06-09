@@ -23,4 +23,4 @@ def save_tensor_to_file(tensor, filename, mode="RGB"):
 
 
 def save_tensor_to_image(tensor, mode="RGB"):
-    return V.to_pil_image(tensor[0].detach().cpu(), mode)
+    return V.to_pil_image(tensor[0].detach().cpu().float(), mode)
