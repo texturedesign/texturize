@@ -32,6 +32,38 @@ class SolverLBFGS:
         return self.optimizer.step(_wrap)
 
 
+class SolverSGD:
+    """Encapsulate the SGD or Adam optimizers from PyTorch with a standard interface.
+    """
+
+    def __init__(self, objective, image, opt_class='SGD', lr=1.0):
+        self.objective = objective
+        self.image = image
+        self.lr = lr
+
+        self.optimizer = getattr(torch.optim, opt_class)([image], lr=lr)
+        self.iteration = 1
+
+    def step(self):
+        # The first 10 iterations, we increase the learning rate slowly to full value.
+        for group in self.optimizer.param_groups:
+            group["lr"] = self.lr * min(self.iteration / 10.0, 1.0) ** 2
+
+        # Each iteration we reset the accumulated gradients and compute the objective.
+        self.iteration += 1
+        self.optimizer.zero_grad()
+
+        # Let the objective compute the loss and its gradients.
+        loss = self.objective(self.image)
+        assert not torch.isnan(self.image.grad).any(), f"Gradient is NaN for loss {loss}."
+
+        # Now compute the updates to the image according to the gradients.
+        self.optimizer.step()
+        assert not torch.isnan(self.image).any(), f"Image is NaN for loss {loss}."
+
+        return loss
+
+
 class MultiCriticObjective:
     """An `Objective` that defines a problem to be solved by evaluating candidate
     solutions (i.e. images) and returning the computed error.
