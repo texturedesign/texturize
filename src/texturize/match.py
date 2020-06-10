@@ -91,6 +91,8 @@ class Mapping:
         self.indices = (
             self.indices.float().mul(factor.to(self.device).view(1, 2, 1, 1)).long()
         )
+        self.indices[:,0].clamp_(0, target_size[0] - 1)
+        self.indices[:,1].clamp_(0, target_size[1] - 1)
 
     def resize(self, size):
         self.indices = F.interpolate(
