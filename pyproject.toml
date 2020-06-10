@@ -1,9 +1,15 @@
 [tool.poetry]
 name = "texturize"
+description = "🤖🖌️ Automatically generate new textures similar to a source photograph."
 version = "0.4.0"
-description = ""
 authors = ["Alex J. Champandard <445208+alexjc@users.noreply.github.com>"]
+readme = "README.rst"
+repository = "https://github.com/photogeniq/neural-texturize"
 license = "AGPL-3.0"
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Topic :: Multimedia :: Graphics",
+]
 packages = [
     { include = "texturize", from = "src" },
 ]
@@ -13,7 +19,7 @@ texturize = 'texturize.__main__:main'
 
 [tool.poetry.dependencies]
 python = "^3.6"
-creativeai = "^0.1"
+creativeai = "^0.1.1"
 docopt = "^0.6.2"
 progressbar2 = "^3.51.3"
 
