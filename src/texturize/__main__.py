@@ -53,7 +53,7 @@ import progressbar
 import torch
 import torch.nn.functional as F
 
-from encoders import models
+from creativeai.image.encoders import models
 
 from .critics import GramMatrixCritic, PatchCritic
 from .solvers import SolverLBFGS, MultiCriticObjective
