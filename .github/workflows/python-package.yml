@@ -17,8 +17,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        python: [3.6, 3.7, 3.8]
-    name: ${{ matrix.os }} Python ${{ matrix.python }}
+        python: [3.6, 3.7]
+    name: Python ${{ matrix.python }} ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -29,12 +29,11 @@ jobs:
           activate-conda: true
           python-version: ${{ matrix.python }}
           conda-channels: pytorch
-      - run: |
+      - name: Install Dependencies
+        run: |
           conda install -q -y pytorch torchvision cpuonly -c pytorch
           conda install -q -y poetry invoke
-      - run: |
-          ls -la lib
-          ls -la lib/image-encoders
           poetry install
-      - run: |
+      - name: Create Package
+        run: |
           poetry build
