@@ -43,242 +43,69 @@ Options:
 # warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 #
 
-import os
 import glob
 import itertools
 
 import docopt
 import progressbar
+from schema import Schema, Use, And, Or
 
 import torch
-import torch.nn.functional as F
 
-from creativeai.image.encoders import models
-
-from .critics import GramMatrixCritic, PatchCritic
-from .solvers import SolverLBFGS, MultiCriticObjective
 from . import __version__
-from . import io
+from .api import process_single_file, ansi, OutputLog
 
 
-class OutputLog:
-    def __init__(self, config):
-        self.quiet = config["--quiet"]
-        self.verbose = config["--verbose"]
+def validate(config):
+    # Determine the shape of output tensor (H, W) from specified resolution.
+    def split_size(size: str):
+        return tuple(map(int, size.split("x")))
 
-    def create_progress_bar(self, iterations):
-        widgets = [
-            progressbar.SimpleProgress(),
-            " | ",
-            progressbar.Variable("loss", format="{name}: {value:0.3e}"),
-            " ",
-            progressbar.Bar(marker="■", fill="·"),
-            " ",
-            progressbar.ETA(),
-        ]
-        ProgressBar = progressbar.NullBar if self.quiet else progressbar.ProgressBar
-        return ProgressBar(
-            max_value=iterations, widgets=widgets, variables={"loss": float("+inf")}
-        )
-
-    def debug(self, *args):
-        if self.verbose:
-            print(*args)
-
-    def info(self, *args):
-        if not self.quiet:
-            print(*args)
-
-
-class TextureSynthesizer:
-    def __init__(self, device, encoder, lr, precision, max_iter):
-        self.device = device
-        self.encoder = encoder
-        self.lr = lr
-        self.precision = precision
-        self.max_iter = max_iter
-
-    def prepare(self, critics, image):
-        """Extract the features from the source texture and initialize the critics.
-        """
-        feats = dict(self.encoder.extract(image, [c.get_layers() for c in critics]))
-        for critic in critics:
-            critic.from_features(feats)
-
-    def run(self, logger, seed_img, critics):
-        """Run the optimizer on the image according to the loss returned by the critics.
-        """
-        image = seed_img.to(self.device).requires_grad_(True)
-
-        obj = MultiCriticObjective(self.encoder, critics)
-        opt = SolverLBFGS(obj, image, lr=self.lr)
-
-        progress = logger.create_progress_bar(self.max_iter)
-
-        try:
-            for i, loss in self._iterate(opt):
-                # Update the progress bar with the result!
-                progress.update(i, loss=loss)
-                # Constrain the image to the valid color range.
-                image.data.clamp_(0.0, 1.0)
-                # Return back to the user...
-                yield loss, image
-
-            progress.max_value = i + 1
-        finally:
-            progress.finish()
-
-    def _iterate(self, opt):
-        previous = None
-        for i in range(self.max_iter):
-            # Perform one step of the optimization.
-            loss = opt.step()
-
-            # Return this iteration to the caller...
-            yield i, loss
-
-            # See if we can terminate the optimization early.
-            if i > 1 and abs(loss - previous) < self.precision:
-                assert i > 10, f"Optimization stalled at iteration {i}."
-                break
-
-            previous = loss
-
-
-class ansi:
-    WHITE = "\033[1;97m"
-    BLACK = "\033[0;30m\033[47m"
-    PINK = "\033[1;35m"
-    ENDC = "\033[0m\033[49m"
-
-
-def process_file(config, source):
-    log = config["--logger"]
-    for octave, result_img in process_image(config, io.load_image_from_file(source)):
-        filenames = []
-        for i, result in enumerate(result_img):
-            # Save the files for each octave to disk.
-            filename = config["--output"].format(
-                octave=octave,
-                source=os.path.splitext(os.path.basename(source))[0],
-                variation=i,
-            )
-            result.save(filename)
-            log.debug("\n=> output:", filename)
-            filenames.append(filename)
-
-    return filenames
-
-
-@torch.no_grad()
-def process_image(config, source):
-    # Load the original image.
-    texture_img = io.load_tensor_from_image(source, device="cpu")
-
-    # Configure the critics.
-    if config["--mode"] == "patch":
-        critics = [PatchCritic(layer=l) for l in ("1_1", "2_1", "3_1")]
-        config["--noise"] = 0.0
-    else:
-        critics = [
-            GramMatrixCritic(layer=l)
-            for l in ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
-        ]
-        config["--noise"] = 0.2
-
-    # Encoder used by all the critics.
-    encoder = models.VGG11(pretrained=True, pool_type=torch.nn.AvgPool2d)
-    encoder = encoder.to(config["--device"], dtype=torch.float32)
-
-    # Generate the starting image for the optimization.
-    octaves = int(config["--octaves"])
-    result_size = list(map(int, config["--size"].split("x")))[::-1]
-    result_img = torch.empty(
-        (
-            int(config["--variations"]),
-            3,
-            result_size[0] // 2 ** (octaves + 1),
-            result_size[1] // 2 ** (octaves + 1),
-        ),
-        device=config["--device"],
-        dtype=torch.float32,
-    ).uniform_(0.4, 0.6)
-
-    # Coarse-to-fine rendering, number of octaves specified by user.
-    log = config["--logger"]
-    for i, octave in enumerate(2 ** s for s in range(octaves - 1, -1, -1)):
-        # Each octave we start a new optimization process.
-        synth = TextureSynthesizer(
-            config["--device"],
-            encoder,
-            lr=1.0,
-            precision=float(config["--precision"]),
-            max_iter=int(config["--iterations"]),
-        )
-        log.info(ansi.BLACK + "\n OCTAVE", f"#{i} " + ansi.ENDC)
-        log.debug("<- scale:", f"1/{octave}")
-
-        # Create downscaled version of original texture to match this octave.
-        texture_cur = F.interpolate(
-            texture_img,
-            scale_factor=1.0 / octave,
-            mode="area",
-            recompute_scale_factor=False,
-        ).to(config["--device"])
-        synth.prepare(critics, texture_cur)
-        log.debug("<- texture:", tuple(texture_cur.shape[2:]))
-        del texture_cur
-
-        # Compute the seed image for this octave, sprinkling a bit of gaussian noise.
-        size = result_size[0] // octave, result_size[1] // octave
-        seed_img = F.interpolate(result_img, size, mode="bicubic", align_corners=False)
-        if config['--noise'] > 0.0:
-            seed_img += torch.empty_like(seed_img).normal_(std=config['--noise'])
-        log.debug("<- seed:", tuple(seed_img.shape[2:]), "\n")
-        del result_img
-
-        # Now we can enable the automatic gradient computation to run the optimization.
-        with torch.enable_grad():
-            for _, result_img in synth.run(log, seed_img, critics):
-                pass
-        del synth
-
-        output_img = F.interpolate(result_img, size=result_size, mode="nearest").cpu()
-        yield octave, [
-            io.save_tensor_to_image(output_img[j : j + 1])
-            for j in range(output_img.shape[0])
-        ]
-        del output_img
+    sch = Schema(
+        {
+            "SOURCE": [str],
+            "size": And(Use(split_size), tuple),
+            "output": str,
+            "variations": Use(int),
+            "seed": Or(None, Use(int)),
+            "mode": Or("patch", "gram"),
+            "octaves": Use(int),
+            "precision": Use(float),
+            "iterations": Use(int),
+            "device": Or(None, "cpu", "cuda"),
+            "quiet": Use(bool),
+            "verbose": Use(bool),
+        },
+        ignore_extra_keys=True,
+    )
+    return sch.validate({k.replace("--", ""): v for k, v in config.items()})
 
 
 def main():
     # Parse the command-line options based on the script's documentation.
     config = docopt.docopt(__doc__[356:], version=__version__)
-    config["--logger"] = log = OutputLog(config)
-    log.info(ansi.PINK + "    " + __doc__[:356] + ansi.ENDC)
+    log = OutputLog(config)
+    log.notice(ansi.PINK + "    " + __doc__[:356] + ansi.ENDC)
 
-    # Determine which device to use by default, then set it up.
-    if config["--device"] is None:
-        config["--device"] = "cuda" if torch.cuda.is_available() else "cpu"
-    config["--device"] = torch.device(config["--device"])
+    # Ensure the user-specified values are correct. 
+    config = validate(config)
+    filenames, seed, quiet, verbose = [config.pop(k) for k in ("SOURCE", "seed", "quiet", "verbose")]
 
     # Scan all the files based on the patterns specified.
-    files = itertools.chain.from_iterable(glob.glob(s) for s in config["SOURCE"])
+    files = itertools.chain.from_iterable(glob.glob(s) for s in filenames)
     for filename in files:
-        # If there's a random seed, use it for all images.
-        if config["--seed"] is not None:
-            seed = int(config["--seed"])
+        # If there's a random seed, use the same for all images.
+        if seed is not None:
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
 
-        # By default, disable autograd until the core optimization loop.
-        with torch.no_grad():
-            try:
-                result = process_file(config, filename)
-                log.info(ansi.PINK + "\n=> result:", result, ansi.ENDC)
-            except KeyboardInterrupt:
-                print(ansi.PINK + "\nCTRL+C detected, interrupting..." + ansi.ENDC)
-                break
+        # Process the files one by one, each may have multiple variations.
+        try:
+            result = process_single_file(filename, log, **config)
+            log.notice(ansi.PINK + "\n=> result:", result, ansi.ENDC)
+        except KeyboardInterrupt:
+            print(ansi.PINK + "\nCTRL+C detected, interrupting..." + ansi.ENDC)
+            break
 
 
 if __name__ == "__main__":
