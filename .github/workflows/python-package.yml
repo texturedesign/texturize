@@ -34,6 +34,9 @@ jobs:
           conda install -q -y pytorch torchvision cpuonly -c pytorch
           conda install -q -y poetry invoke
           poetry install
+      - name: Run Automated Tests
+        run: |
+          invoke test
       - name: Create Package
         run: |
           poetry build
