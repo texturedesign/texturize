@@ -77,7 +77,7 @@ def process_octaves(
     mode: str = "gram",
     variations: int = 1,
     iterations: int = 99,
-    precision: float = 1e-3,
+    precision: float = 1e-5,
     device: str = None,
 ):
     # Determine which device to use by default, then set it up.
@@ -122,6 +122,7 @@ def process_octaves(
             texture_img,
             scale_factor=1.0 / octave,
             mode="area",
+            recompute_scale_factor=False,
         ).to(device)
         synth.prepare(critics, texture_cur)
         log.debug("<- texture:", tuple(texture_cur.shape[2:]))
