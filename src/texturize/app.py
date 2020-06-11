@@ -27,7 +27,7 @@ class TextureSynthesizer:
         for critic in critics:
             critic.from_features(feats)
 
-    def run(self, logger, seed_img, critics):
+    def run(self, log, seed_img, critics):
         """Run the optimizer on the image according to the loss returned by the critics.
         """
         image = seed_img.to(self.device).requires_grad_(True)
@@ -35,7 +35,7 @@ class TextureSynthesizer:
         obj = MultiCriticObjective(self.encoder, critics)
         opt = SolverLBFGS(obj, image, lr=self.lr)
 
-        progress = logger.create_progress_bar(self.max_iter)
+        progress = log.create_progress_bar(self.max_iter)
 
         try:
             for i, loss in self._iterate(opt):
