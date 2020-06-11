@@ -16,7 +16,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macOS-latest]
         python: [3.6, 3.7]
     name: Python ${{ matrix.python }} ${{ matrix.os }}
     steps:
@@ -31,8 +31,9 @@ jobs:
           conda-channels: pytorch
       - name: Install Requirements
         run: |
-          conda install pytorch torchvision cpuonly -c pytorch
+          conda install pytorch=1.5.0 torchvision=0.6.0 cpuonly -c pytorch
           conda install poetry invoke
+          pip install pillow --force
       - name: Setup Dependencies
         run: |
           poetry config virtualenvs.create false
