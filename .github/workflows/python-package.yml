@@ -31,12 +31,23 @@ jobs:
           conda-channels: pytorch
       - name: Install Dependencies
         run: |
-          conda install -q -y pytorch torchvision cpuonly -c pytorch
-          conda install -q -y poetry invoke
+          source activate base
+          conda install pytorch torchvision cpuonly -c pytorch
+          conda install poetry invoke
           poetry install
+          which python
+          which poetry
+          which invoke
+      - name: Check PyTorch
+        run: |
+          /usr/share/miniconda/bin/python -c "import torch; print(torch.__version__)"
+          python -c "import torch; print(torch.__version__)"
       - name: Run Automated Tests
         run: |
-          invoke test
+          /usr/share/miniconda/bin/python -m poetry run pytest -c tasks/pytest.ini -k test_
+      - name: Run Application Tests
+        run: |
+          /usr/share/miniconda/bin/python -m poetry run pytest -c tasks/pytest.ini -k app_
       - name: Create Package
         run: |
           poetry build
