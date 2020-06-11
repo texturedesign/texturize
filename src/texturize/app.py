@@ -51,7 +51,7 @@ class TextureSynthesizer:
             progress.finish()
 
     def _iterate(self, opt):
-        previous = None
+        previous, plateau = None, 0
         for i in range(self.max_iter):
             # Perform one step of the optimization.
             loss = opt.step()
@@ -60,8 +60,9 @@ class TextureSynthesizer:
             yield i, loss
 
             # See if we can terminate the optimization early.
-            if i > 1 and abs(loss - previous) < self.precision:
-                assert i > 10, f"Optimization stalled at iteration {i}."
-                break
+            if i > 0 and abs(loss - previous) < self.precision:
+                plateau += 1
+                if plateau > 2:
+                    break
 
-            previous = loss
+            previous, plateau = loss, 0
