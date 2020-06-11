@@ -31,7 +31,6 @@ jobs:
           conda-channels: pytorch
       - name: Install Requirements
         run: |
-          source activate base
           conda install pytorch torchvision cpuonly -c pytorch
           conda install poetry invoke
       - name: Setup Dependencies
