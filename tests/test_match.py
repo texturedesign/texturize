@@ -109,13 +109,13 @@ def test_compare_random_converges(target, source):
         if missing == 0:
             break
 
-    assert (matcher1.repro_target.indices != matcher2.repro_target.indices).sum() == 0
+    assert (matcher1.repro_target.indices != matcher2.repro_target.indices).sum() <= 2
     assert pytest.approx(0.0, abs=1e-6) == torch.dist(
         matcher1.repro_target.scores, matcher2.repro_target.scores
     )
 
     assert matcher2.repro_sources.indices.min() != -1
-    assert (matcher1.repro_sources.indices != matcher2.repro_sources.indices).sum() == 0
+    assert (matcher1.repro_sources.indices != matcher2.repro_sources.indices).sum() <= 2
     assert pytest.approx(0.0, abs=1e-6) == torch.dist(
         matcher1.repro_sources.scores, matcher2.repro_sources.scores
     )
