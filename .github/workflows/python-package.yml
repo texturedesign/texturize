@@ -16,7 +16,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [ubuntu-latest, windows-latest]
         python: [3.6, 3.7]
     name: Python ${{ matrix.python }} ${{ matrix.os }}
     steps:
@@ -29,14 +29,20 @@ jobs:
           activate-conda: true
           python-version: ${{ matrix.python }}
           conda-channels: pytorch
-      - name: Install Dependencies
+      - name: Install Requirements
         run: |
-          conda install -q -y pytorch torchvision cpuonly -c pytorch
-          conda install -q -y poetry invoke
+          conda install pytorch torchvision cpuonly -c pytorch
+          pip install poetry invoke pillow --force
+      - name: Setup Dependencies
+        run: |
+          poetry config virtualenvs.create false
           poetry install
       - name: Run Automated Tests
         run: |
-          invoke test
+          poetry run pytest -c tasks/pytest.ini -k test_match
+      - name: Run Application Tests
+        run: |
+          poetry run pytest -c tasks/pytest.ini -k app_
       - name: Create Package
         run: |
           poetry build

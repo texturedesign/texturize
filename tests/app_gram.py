@@ -23,4 +23,4 @@ def test_gram_variations(image, size=(72, 64)):
         assert len(images) == 2
         assert all(isinstance(img, PIL.Image.Image) for img in images)
         assert all(img.size == size for img in images)
-        assert loss < 1e-1
+        assert loss < 5e-1

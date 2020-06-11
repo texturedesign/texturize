@@ -77,7 +77,7 @@ def process_octaves(
     mode: str = "gram",
     variations: int = 1,
     iterations: int = 99,
-    precision: float = 1e-3,
+    precision: float = 1e-5,
     device: str = None,
 ):
     # Determine which device to use by default, then set it up.
