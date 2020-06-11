@@ -122,7 +122,6 @@ def process_octaves(
             texture_img,
             scale_factor=1.0 / octave,
             mode="area",
-            recompute_scale_factor=False,
         ).to(device)
         synth.prepare(critics, texture_cur)
         log.debug("<- texture:", tuple(texture_cur.shape[2:]))

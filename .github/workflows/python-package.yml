@@ -39,7 +39,7 @@ jobs:
           poetry install
       - name: Run Automated Tests
         run: |
-          poetry run pytest -c tasks/pytest.ini -k test_
+          poetry run pytest -c tasks/pytest.ini -k test_match
       - name: Run Application Tests
         run: |
           poetry run pytest -c tasks/pytest.ini -k app_
