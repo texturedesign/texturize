@@ -95,7 +95,7 @@ def process_octaves(
             GramMatrixCritic(layer=l)
             for l in ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
         ]
-        noise = 0.2
+        noise = 0.1
 
     # Encoder used by all the critics.
     encoder = models.VGG11(pretrained=True, pool_type=torch.nn.AvgPool2d)
@@ -103,10 +103,10 @@ def process_octaves(
 
     # Generate the starting image for the optimization.
     result_img = torch.empty(
-        (variations, 3, size[1] // 2 ** (octaves + 1), size[0] // 2 ** (octaves + 1),),
+        (variations, 1, size[1] // 2 ** (octaves + 1), size[0] // 2 ** (octaves + 1)),
         device=device,
         dtype=torch.float32,
-    ).uniform_(0.4, 0.6)
+    ).normal_(std=0.05) + texture_img.mean(dim=(2, 3), keepdim=True).to(device)
 
     # Coarse-to-fine rendering, number of octaves specified by user.
     for i, octave in enumerate(2 ** s for s in range(octaves - 1, -1, -1)):
@@ -134,7 +134,8 @@ def process_octaves(
             result_img, result_size, mode="bicubic", align_corners=False
         )
         if noise > 0.0:
-            seed_img += torch.empty_like(seed_img).normal_(std=noise)
+            b, _, h, w = seed_img.shape
+            seed_img += seed_img.new_empty(size=(b, 1, h, w)).normal_(std=noise)
         log.debug("<- seed:", tuple(seed_img.shape[2:]), "\n")
         del result_img
 
@@ -144,7 +145,9 @@ def process_octaves(
                 pass
         del synth
 
-        output_img = F.interpolate(result_img, size=(size[1], size[0]), mode="nearest").cpu()
+        output_img = F.interpolate(
+            result_img, size=(size[1], size[0]), mode="nearest"
+        ).cpu()
         yield octave, loss, [
             save_tensor_to_image(output_img[j : j + 1])
             for j in range(output_img.shape[0])
@@ -153,7 +156,9 @@ def process_octaves(
 
 
 def process_single_file(source, log: object, output: str = None, **config: dict):
-    for octave, _, result_img in process_octaves(load_image_from_file(source), log, **config):
+    for octave, _, result_img in process_octaves(
+        load_image_from_file(source), log, **config
+    ):
         filenames = []
         for i, result in enumerate(result_img):
             # Save the files for each octave to disk.
