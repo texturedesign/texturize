@@ -31,7 +31,7 @@ jobs:
           conda-channels: pytorch
       - name: Install Requirements
         run: |
-          conda install pytorch torchvision cpuonly -c pytorch
+          conda install pytorch==1.5.0 torchvision cpuonly -c pytorch
           conda install poetry invoke
       - name: Setup Dependencies
         run: |
