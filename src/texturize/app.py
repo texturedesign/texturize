@@ -39,6 +39,11 @@ class TextureSynthesizer:
 
         try:
             for i, loss in self._iterate(opt):
+                # Check if there were any problems in the gradients...
+                if i == -1:
+                    log.warn(f"\nOptimization diverged, loss increased by {loss:0.2f}!")
+                    continue
+
                 # Update the progress bar with the result!
                 progress.update(i, loss=loss)
                 # Constrain the image to the valid color range.
@@ -54,15 +59,20 @@ class TextureSynthesizer:
         previous, plateau = None, 0
         for i in range(self.max_iter):
             # Perform one step of the optimization.
-            loss = opt.step()
+            loss, scores = opt.step()
+
+            if i > 0 and loss > previous * 1.5:
+                yield -1, loss / previous
 
             # Return this iteration to the caller...
             yield i, loss
 
             # See if we can terminate the optimization early.
-            if i > 0 and abs(loss - previous) < self.precision:
+            if i > 0 and abs(loss - previous) <= self.precision:
                 plateau += 1
                 if plateau > 2:
                     break
+            else:
+                plateau = 0
 
-            previous, plateau = loss, 0
+            previous = loss

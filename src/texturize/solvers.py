@@ -14,7 +14,6 @@ class SolverLBFGS:
         self.optimizer = torch.optim.LBFGS(
             [image], lr=lr, max_iter=2, max_eval=4, history_size=10
         )
-        self.scores = []
         self.iteration = 1
 
     def step(self):
@@ -23,13 +22,21 @@ class SolverLBFGS:
             group["lr"] = self.lr * min(self.iteration / 10.0, 1.0) ** 2
 
         # Each iteration we reset the accumulated gradients and compute the objective.
+        loss, scores = None, None
         def _wrap():
+            nonlocal loss, scores
             self.iteration += 1
+            self.image.data.clamp_(0.0, 1.0)
+
             self.optimizer.zero_grad()
-            return self.objective(self.image)
+            loss, scores = self.objective(self.image)
+
+            self.image.grad.data.clamp_(-1e-1, +1e-1)
+            return loss.detach()
 
         # This optimizer decides when and how to call the objective.
-        return self.optimizer.step(_wrap)
+        self.optimizer.step(_wrap)
+        return loss.item(), scores
 
 
 class SolverSGD:
@@ -82,8 +89,6 @@ class MultiCriticObjective:
         computes the gradients, and returns the loss.
         """
 
-        image.data.clamp_(0.0, 1.0)
-
         # Extract features from image.
         feats = dict(self.encoder.extract(image, [c.get_layers() for c in self.critics]))
 
@@ -96,7 +101,7 @@ class MultiCriticObjective:
             scores.append(total)
 
         # Calculate the final loss and compute the gradients.
-        loss = sum(scores) / len(scores)
+        loss = (sum(scores) / len(scores)).mean()
         loss.backward()
 
-        return loss.item()
+        return loss, scores

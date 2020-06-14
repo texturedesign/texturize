@@ -15,6 +15,7 @@ from .io import *
 class ansi:
     WHITE = "\033[1;97m"
     BLACK = "\033[0;30m\033[47m"
+    YELLOW = "\033[1;33m"
     PINK = "\033[1;35m"
     ENDC = "\033[0m\033[49m"
 
@@ -29,9 +30,10 @@ class EmptyLog:
     def debug(self, *args):
         pass
 
-    def create_progress_bar(self, iterations):
-        import progressbar
+    def warn(self, *args):
+        pass
 
+    def create_progress_bar(self, iterations):
         return progressbar.NullBar(max_value=iterations)
 
 
@@ -67,6 +69,9 @@ class OutputLog:
         if not self.quiet:
             print(ansi.BLACK + "".join(args) + ansi.ENDC)
 
+    def warn(self, *args):
+        print(ansi.YELLOW + "".join(args) + ansi.ENDC)
+
 
 @torch.no_grad()
 def process_octaves(
@@ -95,7 +100,7 @@ def process_octaves(
             GramMatrixCritic(layer=l)
             for l in ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
         ]
-        noise = 0.1
+        noise = 0.2
 
     # Encoder used by all the critics.
     encoder = models.VGG11(pretrained=True, pool_type=torch.nn.AvgPool2d)
@@ -106,7 +111,7 @@ def process_octaves(
         (variations, 1, size[1] // 2 ** (octaves + 1), size[0] // 2 ** (octaves + 1)),
         device=device,
         dtype=torch.float32,
-    ).normal_(std=0.05) + texture_img.mean(dim=(2, 3), keepdim=True).to(device)
+    ).normal_(std=0.1) + texture_img.mean(dim=(2, 3), keepdim=True).to(device)
 
     # Coarse-to-fine rendering, number of octaves specified by user.
     for i, octave in enumerate(2 ** s for s in range(octaves - 1, -1, -1)):

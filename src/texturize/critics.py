@@ -24,7 +24,8 @@ class GramMatrixCritic:
 
     def evaluate(self, features):
         current = self._prepare_gram(features)
-        yield 1e4 * F.mse_loss(current, self.gram.expand_as(current), reduction="mean")
+        result = F.mse_loss(current, self.gram.expand_as(current), reduction="none")
+        yield 1e4 * result.flatten(1).mean(dim=1)
 
     def from_features(self, features):
         self.gram = self._prepare_gram(features)
