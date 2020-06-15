@@ -29,22 +29,26 @@ For details about the command-line options, see the tool itself:
 Here are the command-line options currently available::
 
     Usage:
-        texturize SOURCE... [--size=WxH] [--output=FILE] [--seed=SEED] [--device=DEVICE]
-                            [--octaves=O] [--precision=P] [--iterations=I]
-        texturize --help
-
+        texturize SOURCE... [--size=WxH] [--output=FILE] [--variations=V] [--seed=SEED]
+                            [--mode=MODE] [--octaves=O] [--threshold=H] [--iterations=I]
+                            [--device=DEVICE] [--precision=PRECISION] [--quiet] [--verbose]
 
     Options:
         SOURCE                  Path to source image to use as texture.
         -s WxH, --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
+        -o FILE, --output=FILE  Filename for saving the result, includes format variables.
+                                [default: {source}_gen{variation}.png]
+        --variations=V          Number of images to generate at same time. [default: 1]
         --seed=SEED             Configure the random number generation.
-        --device=DEVICE         Hardware to use, either "cpu" or "cuda".
+        --mode=MODE             Either "patch" or "gram" to specify critics. [default: gram]
         --octaves=O             Number of octaves to process. [default: 5]
-        --precision=P           Set the quality for the optimization. [default: 1e-4]
+        --threshold=T           Quality for optimization, lower is better. [default: 1e-4]
         --iterations=I          Maximum number of iterations each octave. [default: 99]
-        -o FILE, --output=FILE  Filename for saving the result. [default: {source}_gen.png]
-        -h --help               Show this message.
-
+        --device=DEVICE         Hardware to use, either "cpu" or "cuda".
+        --precision=PRECISION   Floating-point format to use, "float16" or "float32".
+        --quiet                 Suppress any messages going to stdout.
+        --verbose               Display more information on stdout.
+        -h, --help              Show this message.
 
 2. Installation
 ===============
