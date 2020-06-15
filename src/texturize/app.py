@@ -13,11 +13,11 @@ from .io import *
 
 
 class TextureSynthesizer:
-    def __init__(self, device, encoder, lr, precision, max_iter):
+    def __init__(self, device, encoder, lr, threshold, max_iter):
         self.device = device
         self.encoder = encoder
         self.lr = lr
-        self.precision = precision
+        self.threshold = threshold
         self.max_iter = max_iter
 
     def prepare(self, critics, image):
@@ -68,7 +68,7 @@ class TextureSynthesizer:
             yield i, loss
 
             # See if we can terminate the optimization early.
-            if i > 0 and abs(loss - previous) <= self.precision:
+            if i > 0 and abs(loss - previous) <= self.threshold:
                 plateau += 1
                 if plateau > 2:
                     break

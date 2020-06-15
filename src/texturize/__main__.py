@@ -7,8 +7,8 @@ r"""                         _   _            _              _
 
 Usage:
     texturize SOURCE... [--size=WxH] [--output=FILE] [--variations=V] [--seed=SEED]
-                        [--mode=MODE] [--octaves=O] [--precision=P] [--iterations=I]
-                        [--device=DEVICE] [--quiet] [--verbose]
+                        [--mode=MODE] [--octaves=O] [--threshold=H] [--iterations=I]
+                        [--device=DEVICE] [--precision=PRECISION] [--quiet] [--verbose]
     texturize --help
 
 Examples:
@@ -26,13 +26,13 @@ Options:
     --seed=SEED             Configure the random number generation.
     --mode=MODE             Either "patch" or "gram" to specify critics. [default: gram]
     --octaves=O             Number of octaves to process. [default: 5]
-    --precision=P           Set the quality for the optimization. [default: 1e-4]
+    --threshold=T           Quality for optimization, lower is better. [default: 1e-4]
     --iterations=I          Maximum number of iterations each octave. [default: 99]
     --device=DEVICE         Hardware to use, either "cpu" or "cuda".
+    --precision=PRECISION   Floating-point format to use, "float16" or "float32".
     --quiet                 Suppress any messages going to stdout.
     --verbose               Display more information on stdout.
-    -h --help               Show this message.
-
+    -h, --help              Show this message.
 """
 #
 # Copyright (c) 2020, Novelty Factory KG.
@@ -70,9 +70,11 @@ def validate(config):
             "seed": Or(None, Use(int)),
             "mode": Or("patch", "gram"),
             "octaves": Use(int),
-            "precision": Use(float),
+            "threshold": Use(float),
             "iterations": Use(int),
             "device": Or(None, "cpu", "cuda"),
+            "precision": Or(None, "float16", "float32"),
+            "help": Use(bool),
             "quiet": Use(bool),
             "verbose": Use(bool),
         },
@@ -83,13 +85,19 @@ def validate(config):
 
 def main():
     # Parse the command-line options based on the script's documentation.
-    config = docopt.docopt(__doc__[356:], version=__version__)
-    log = OutputLog(config)
-    log.notice(ansi.PINK + "    " + __doc__[:356] + ansi.ENDC)
-
-    # Ensure the user-specified values are correct. 
+    config = docopt.docopt(__doc__[356:], version=__version__, help=False)
+    # Ensure the user-specified values are correct.
     config = validate(config)
-    filenames, seed, quiet, verbose = [config.pop(k) for k in ("SOURCE", "seed", "quiet", "verbose")]
+    filenames, seed, quiet, verbose, help = [
+        config.pop(k) for k in ("SOURCE", "seed", "quiet", "verbose", "help")
+    ]
+
+    # Setup the output logging and display the logo!
+    log = OutputLog(quiet, verbose)
+    log.notice(ansi.PINK + "    " + __doc__[:356] + ansi.ENDC)
+    if help is True:
+        log.notice(__doc__[356:])
+        return
 
     # Scan all the files based on the patterns specified.
     files = itertools.chain.from_iterable(glob.glob(s) for s in filenames)

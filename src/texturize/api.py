@@ -38,9 +38,9 @@ class EmptyLog:
 
 
 class OutputLog:
-    def __init__(self, config):
-        self.quiet = config["--quiet"]
-        self.verbose = config["--verbose"]
+    def __init__(self, quiet, verbose):
+        self.quiet = quiet
+        self.verbose = verbose
 
     def create_progress_bar(self, iterations):
         widgets = [
@@ -82,18 +82,20 @@ def process_octaves(
     mode: str = "gram",
     variations: int = 1,
     iterations: int = 99,
-    precision: float = 1e-5,
+    threshold: float = 1e-5,
     device: str = None,
+    precision: str = None,
 ):
-    # Determine which device to use by default, then set it up.
+    # Determine which device and dtype to use by default, then set it up.
     device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+    precision = getattr(torch, precision or "float32") 
 
     # Load the original image, always on the host device to save memory.
-    texture_img = load_tensor_from_image(source, device="cpu")
+    texture_img = load_tensor_from_image(source, device="cpu").to(dtype=precision)
 
     # Configure the critics.
     if mode == "patch":
-        critics = [PatchCritic(layer=l) for l in ("1_1", "2_1", "3_1")]
+        critics = [PatchCritic(layer=l) for l in ("3_1", "2_1", "1_1")]
         noise = 0.0
     else:  # mode == "gram"
         critics = [
@@ -104,20 +106,32 @@ def process_octaves(
 
     # Encoder used by all the critics.
     encoder = models.VGG11(pretrained=True, pool_type=torch.nn.AvgPool2d)
-    encoder = encoder.to(device, dtype=torch.float32)
+    encoder = encoder.to(device=device, dtype=precision)
 
     # Generate the starting image for the optimization.
-    result_img = torch.empty(
-        (variations, 1, size[1] // 2 ** (octaves + 1), size[0] // 2 ** (octaves + 1)),
-        device=device,
-        dtype=torch.float32,
-    ).normal_(std=0.1) + texture_img.mean(dim=(2, 3), keepdim=True).to(device)
+    result_img = (
+        torch.empty(
+            (
+                variations,
+                1,
+                size[1] // 2 ** (octaves + 1),
+                size[0] // 2 ** (octaves + 1),
+            ),
+            device=device,
+            dtype=torch.float32,
+        ).normal_(std=0.1)
+        + texture_img.mean(dim=(2, 3), keepdim=True).to(device)
+    ).to(dtype=precision)
 
     # Coarse-to-fine rendering, number of octaves specified by user.
     for i, octave in enumerate(2 ** s for s in range(octaves - 1, -1, -1)):
+        if i == 5:
+            precision = torch.float16
+            encoder = encoder.half()
+
         # Each octave we start a new optimization process.
         synth = TextureSynthesizer(
-            device, encoder, lr=1.0, precision=precision, max_iter=iterations,
+            device, encoder, lr=1.0, threshold=threshold, max_iter=iterations,
         )
         log.info(f"\n OCTAVE #{i} ")
         log.debug("<- scale:", f"1/{octave}")
@@ -128,7 +142,7 @@ def process_octaves(
             scale_factor=1.0 / octave,
             mode="area",
             recompute_scale_factor=False,
-        ).to(device)
+        ).to(device=device, dtype=precision)
         synth.prepare(critics, texture_cur)
         log.debug("<- texture:", tuple(texture_cur.shape[2:]))
         del texture_cur
@@ -146,7 +160,7 @@ def process_octaves(
 
         # Now we can enable the automatic gradient computation to run the optimization.
         with torch.enable_grad():
-            for loss, result_img in synth.run(log, seed_img, critics):
+            for loss, result_img in synth.run(log, seed_img.to(dtype=precision), critics):
                 pass
         del synth
 
