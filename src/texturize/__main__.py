@@ -68,7 +68,7 @@ def validate(config):
             "output": str,
             "variations": Use(int),
             "seed": Or(None, Use(int)),
-            "mode": Or("patch", "gram"),
+            "mode": Or("patch", "gram", "hist"),
             "octaves": Use(int),
             "threshold": Use(float),
             "iterations": Use(int),

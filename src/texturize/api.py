@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 from creativeai.image.encoders import models
 
-from .critics import GramMatrixCritic, PatchCritic
+from .critics import GramMatrixCritic, PatchCritic, HistogramCritic
 from .app import TextureSynthesizer
 from .io import *
 
@@ -97,12 +97,15 @@ def process_octaves(
     if mode == "patch":
         critics = [PatchCritic(layer=l) for l in ("3_1", "2_1", "1_1")]
         noise = 0.0
-    else:  # mode == "gram"
+    elif mode == "gram":
         critics = [
             GramMatrixCritic(layer=l)
             for l in ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
         ]
         noise = 0.2
+    elif mode == "hist":
+        critics = [HistogramCritic(layer=l) for l in ("3_1", "2_1", "1_1")]
+        noise = 0.1
 
     # Encoder used by all the critics.
     encoder = models.VGG11(pretrained=True, pool_type=torch.nn.AvgPool2d)

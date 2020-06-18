@@ -52,6 +52,44 @@ class GramMatrixCritic:
         )
 
 
+class HistogramCritic:
+    """
+    This critic uses the Sliced Wasserstein Distance of the features to approximate the
+    distance between n-dimensional histogram.
+
+    See https://arxiv.org/abs/2006.07229 for details.
+    """
+
+    def __init__(self, layer):
+        self.layer = layer
+
+    def get_layers(self):
+        return {self.layer}
+
+    def from_features(self, features):
+        self.features = features[self.layer]
+
+    def random_directions(self, count, device):
+        directions = torch.empty((count, count, 1, 1), device=device).uniform_(-1.0, +1.0)
+        return directions / torch.norm(directions, dim=1, keepdim=True)
+
+    def sorted_projection(self, directions, features):
+        proj_t = torch.sum(features * directions, dim=1).flatten(1)
+        return torch.sort(proj_t, dim=1).values
+
+    def evaluate(self, features):
+        f = features[self.layer]
+        assert f.shape[0] == 1
+
+        directions = self.random_directions(f.shape[1], f.device)
+
+        with torch.no_grad():
+            source = self.sorted_projection(directions, self.features)
+        current = self.sorted_projection(directions, f)
+
+        yield F.mse_loss(current, source)
+
+
 class PatchCritic:
     def __init__(self, layer):
         self.layer = layer
