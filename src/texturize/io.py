@@ -1,5 +1,6 @@
 # neural-texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
+import urllib
 import asyncio
 from io import BytesIO
 
@@ -20,6 +21,12 @@ def load_tensor_from_image(image, device):
     return V.to_tensor(image).unsqueeze(0).to(device)
 
 
+def load_image_from_url(url, mode="RGB"):
+    response = urllib.request.urlopen(url)
+    buffer = BytesIO(response.read())
+    return PIL.Image.open(buffer).convert(mode)
+
+
 def save_tensor_to_file(tensor, filename, mode="RGB"):
     img = save_tensor_to_image(tensor)
     img.save(filename)
@@ -38,10 +45,18 @@ except ImportError:
     pass
 
 
-def show_result_in_notebook(images):
+def show_result_in_notebook(result, title="Generated Image"):
     clear_output()
-    for out in images:
-        html = ipywidgets.HTML(value="<h3>Octave #1</h3>")
+
+    for out in result.images:
+        html = ipywidgets.HTML(value=f"""
+        <h3>{title}</h3>
+        <ul style="font-size: 16px;">
+            <li>octave: {result.octave}</li>
+            <li>size: {out.size}</li>
+            <li>scale: 1/{result.scale}</li>
+            <li>loss: {result.loss:0.4f}</li>
+        </ul>""")
 
         buffer = io.BytesIO()
         out.save(buffer, format="webp", quality=80)
