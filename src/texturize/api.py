@@ -37,7 +37,7 @@ class EmptyLog:
         return progressbar.NullBar(max_value=iterations)
 
 
-class OutputLog:
+class ConsoleLog:
     def __init__(self, quiet, verbose):
         self.quiet = quiet
         self.verbose = verbose
@@ -73,10 +73,51 @@ class OutputLog:
         print(ansi.YELLOW + "".join(args) + ansi.ENDC)
 
 
+class NotebookLog:
+    class ProgressBar:
+        def __init__(self, max_iter):
+            import ipywidgets
+            self.bar = ipywidgets.IntProgress(
+                value=0,
+                min=0,
+                max=max_iter,
+                step=1,
+                description='',
+                bar_style='',
+                orientation='horizontal',
+                layout=ipywidgets.Layout(width="100%"),
+            )
+
+            from IPython.display import display
+            display(self.bar)
+
+        def update(self, value, **keywords):
+            self.bar.value = value
+
+        def finish(self):
+            self.bar.close()
+
+    def create_progress_bar(self, iterations):
+        return NotebookLog.ProgressBar(iterations)
+
+    def debug(self, *args): pass
+    def notice(self, *args): pass
+    def info(self, *args): pass
+    def warn(self, *args): pass
+
+
+def get_default_log():
+    try:
+        get_ipython
+        return NotebookLog()
+    except NameError:
+        return EmptyLog()
+
+
 @torch.no_grad()
 def process_octaves(
     source,
-    log: object = EmptyLog(),
+    log: object = None,
     size: tuple = None,
     octaves: int = -1,
     mode: str = "gram",
@@ -86,6 +127,9 @@ def process_octaves(
     device: str = None,
     precision: str = None,
 ):
+    # Setup the output and logging to use throughout the synthesis. 
+    log = log or get_default_log()
+
     # Determine which device and dtype to use by default, then set it up.
     device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
     precision = getattr(torch, precision or "float32") 

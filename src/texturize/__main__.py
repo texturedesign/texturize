@@ -53,7 +53,7 @@ from schema import Schema, Use, And, Or
 import torch
 
 from . import __version__
-from .api import process_single_file, ansi, OutputLog
+from .api import process_single_file, ansi, ConsoleLog
 
 
 def validate(config):
@@ -93,7 +93,7 @@ def main():
     ]
 
     # Setup the output logging and display the logo!
-    log = OutputLog(quiet, verbose)
+    log = ConsoleLog(quiet, verbose)
     log.notice(ansi.PINK + "    " + __doc__[:356] + ansi.ENDC)
     if help is True:
         log.notice(__doc__[356:])
