@@ -5,6 +5,7 @@ __pycache__/
 
 # Tests / results / generated.
 output/
+tmp/
 
 # Distribution / packaging / build.
 htmlcov/
@@ -20,6 +21,7 @@ sdist/
 .venv/
 .vscode/
 .hypothesis/
+.ipynb*/
 
 # Documentation.
 docs/_build
