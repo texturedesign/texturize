@@ -1,5 +1,6 @@
 # neural-texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
+import random
 import urllib
 import asyncio
 from io import BytesIO
@@ -27,6 +28,12 @@ def load_image_from_url(url, mode="RGB"):
     return PIL.Image.open(buffer).convert(mode)
 
 
+def random_crop(image, size):
+    x = random.randint(0, image.size[0] - size[0])
+    y = random.randint(0, image.size[1] - size[1])
+    return image.crop((x, y, x + size[0], y + size[1]))
+
+
 def save_tensor_to_file(tensor, filename, mode="RGB"):
     assert tensor.shape[0] == 1
     img = save_tensor_to_images(tensor)
@@ -49,10 +56,31 @@ except ImportError:
     pass
 
 
-def show_result_in_notebook(title="Generated Image"):
+def show_image_as_tiles(image, count, size):
+    def make_crop():
+        buffer = io.BytesIO()
+        x = random.randint(0, image.size[0] - size[0])
+        y = random.randint(0, image.size[1] - size[1])
+        tile = image.crop((x, y, x + size[0], y + size[1]))
+        tile.save(buffer, format="webp", quality=80)
+        buffer.seek(0)
+        return buffer.read()
+
+    pct = 100.0 / count
+    tiles = [
+        ipywidgets.Image(
+            value=make_crop(), format="webp", layout=ipywidgets.Layout(width=f"{pct}%")
+        )
+        for _ in range(count)
+    ]
+    box = ipywidgets.HBox(tiles, layout=ipywidgets.Layout(width="100%"))
+    display(box)
+
+
+def show_result_in_notebook(title=None):
     class ResultWidget:
         def __init__(self, title):
-            self.title = title
+            self.title = f"<h3>{title}</h3>" if title is not None else ""
             self.html = ipywidgets.HTML(value="")
             self.img = ipywidgets.Image(
                 value=b"",
@@ -64,14 +92,14 @@ def show_result_in_notebook(title="Generated Image"):
             )
             display(self.box)
 
-        def __call__(self, result):
+        def update(self, result):
             assert len(result.images) == 1, "Only one image supported."
 
             for out in save_tensor_to_images(result.images):
                 self.html.set_trait(
                     "value",
                     f"""
-                    <h3>{self.title}</h3>
+                    {self.title}
                     <ul style="font-size: 16px;">
                         <li>octave: {result.octave}</li>
                         <li>iteration: {result.iteration}</li>
@@ -104,12 +132,12 @@ def load_image_from_notebook():
             self.observe(self.add_to_results, names="value")
             self.results = []
 
-        def get(self):
-            return self.results.pop(0)
+        def get(self, index):
+            return self.results[index]
 
         def __iter__(self):
             while len(self.results) > 0:
-                yield self.get()
+                yield self.results.pop(0)
 
         def add_to_results(self, change):
             for filename, data in change["new"].items():
