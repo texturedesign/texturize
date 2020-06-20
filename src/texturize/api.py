@@ -87,7 +87,7 @@ class NotebookLog:
                 description="",
                 bar_style="",
                 orientation="horizontal",
-                layout=ipywidgets.Layout(width="100%"),
+                layout=ipywidgets.Layout(width="100%", margin="0"),
             )
 
             from IPython.display import display
@@ -125,13 +125,25 @@ def get_default_log():
 
 
 Result = collections.namedtuple(
-    "Result", ["images", "loss", "octave", "scale", "iteration"]
+    "Result", ["images", "octave", "scale", "iteration", "loss"]
 )
 
 
 @torch.no_grad()
-def process_octaves(
-    source,
+def process_octaves(sources, **kwargs):
+    """Synthesize a new texture from sources and return a PyTorch tensor at each octave.
+    """
+
+    for r in process_iterations(sources, **kwargs):
+        if r.iteration >= 0:
+            continue
+
+        yield Result(r.images, r.octave, r.scale, -r.iteration, r.loss)
+
+
+@torch.no_grad()
+def process_iterations(
+    sources,
     log: object = None,
     size: tuple = None,
     octaves: int = -1,
@@ -142,6 +154,9 @@ def process_octaves(
     device: str = None,
     precision: str = None,
 ):
+    """Synthesize a new texture and return a PyTorch tensor at each iteration.
+    """
+
     # Setup the output and logging to use throughout the synthesis.
     log = log or get_default_log()
 
@@ -149,22 +164,25 @@ def process_octaves(
     device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
     precision = getattr(torch, precision or "float32")
 
-    # Load the original image, always on the host device to save memory.
-    texture_img = load_tensor_from_image(source, device="cpu").to(dtype=precision)
+    # Load the original images, always on the host device to save memory.
+    texture_critics = []
+    for source in sources:
+        texture_img = load_tensor_from_image(source, device="cpu").to(dtype=precision)
 
-    # Configure the critics.
-    if mode == "patch":
-        critics = [PatchCritic(layer=l) for l in ("3_1", "2_1", "1_1")]
-        noise = 0.0
-    elif mode == "gram":
-        critics = [
-            GramMatrixCritic(layer=l)
-            for l in ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
-        ]
-        noise = 0.2
-    elif mode == "hist":
-        critics = [HistogramCritic(layer=l) for l in ("3_1", "2_1", "1_1")]
-        noise = 0.1
+        if mode == "patch":
+            critics = [PatchCritic(layer=l) for l in ("3_1", "2_1", "1_1")]
+            noise = 0.0
+        elif mode == "gram":
+            critics = [
+                GramMatrixCritic(layer=l)
+                for l in ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
+            ]
+            noise = 0.1
+        elif mode == "hist":
+            critics = [HistogramCritic(layer=l) for l in ("1_1", "2_1", "3_1")]
+            noise = 0.1
+
+        texture_critics.append((texture_img, critics))
 
     # Encoder used by all the critics.
     encoder = models.VGG11(pretrained=True, pool_type=torch.nn.AvgPool2d)
@@ -173,12 +191,7 @@ def process_octaves(
     # Generate the starting image for the optimization.
     result_img = (
         torch.empty(
-            (
-                variations,
-                1,
-                size[1] // 2 ** (octaves + 1),
-                size[0] // 2 ** (octaves + 1),
-            ),
+            (variations, 1, size[1] // 2 ** octaves, size[0] // 2 ** octaves),
             device=device,
             dtype=torch.float32,
         ).normal_(std=0.1)
@@ -195,15 +208,18 @@ def process_octaves(
         log.debug("<- scale:", f"1/{scale}")
 
         # Create downscaled version of original texture to match this octave.
-        texture_cur = F.interpolate(
-            texture_img,
-            scale_factor=1.0 / scale,
-            mode="area",
-            recompute_scale_factor=False,
-        ).to(device=device, dtype=precision)
-        synth.prepare(critics, texture_cur)
-        log.debug("<- texture:", tuple(texture_cur.shape[2:]))
-        del texture_cur
+        all_critics = []
+        for (texture_img, critics) in texture_critics:
+            texture_cur = F.interpolate(
+                texture_img,
+                scale_factor=1.0 / scale,
+                mode="area",
+                recompute_scale_factor=False,
+            ).to(device=device, dtype=precision)
+            synth.prepare(critics, texture_cur)
+            all_critics.extend(critics)
+            log.debug("<- texture:", tuple(texture_cur.shape[2:]))
+            del texture_cur
 
         # Compute the seed image for this octave, sprinkling a bit of gaussian noise.
         result_size = size[1] // scale, size[0] // scale
@@ -213,39 +229,30 @@ def process_octaves(
         if noise > 0.0:
             b, _, h, w = seed_img.shape
             seed_img += seed_img.new_empty(size=(b, 1, h, w)).normal_(std=noise)
+            seed_img.clamp_(0.0, 1.0)
         log.debug("<- seed:", tuple(seed_img.shape[2:]), "\n")
         del result_img
 
         # Now we can enable the automatic gradient computation to run the optimization.
         with torch.enable_grad():
-            for iteration, (loss, result_img) in enumerate(
-                synth.run(log, seed_img.to(dtype=precision), critics)
-            ):
-                pass
-        del synth
+            # The first iteration contains the rescaled image with noise.
+            yield Result(seed_img, octave, scale, 0, float("+inf"))
 
-        output_img = F.interpolate(
-            result_img, size=(size[1], size[0]), mode="nearest"
-        ).cpu()
-        yield Result(
-            loss=loss,
-            octave=octave,
-            scale=scale,
-            iteration=iteration,
-            images=[
-                save_tensor_to_image(output_img[j : j + 1])
-                for j in range(output_img.shape[0])
-            ],
-        )
-        del output_img
+            for iteration, (loss, result_img) in enumerate(
+                synth.run(log, seed_img.to(dtype=precision), all_critics)
+            ):
+                yield Result(result_img, octave, scale, iteration + 1, loss)
+
+            # The last iteration is repeated to indicate completion.
+            yield Result(result_img, octave, scale, -(iteration + 1), loss)
+        del synth
 
 
 def process_single_file(source, log: object, output: str = None, **config: dict):
-    for result in process_octaves(
-        load_image_from_file(source), log, **config
-    ):
+    for result in process_octaves([load_image_from_file(source)], log=log, **config):
+        images = save_tensor_to_images(result.images)
         filenames = []
-        for i, image in enumerate(result.images):
+        for i, image in enumerate(images):
             # Save the files for each octave to disk.
             filename = output.format(
                 octave=result.octave,

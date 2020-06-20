@@ -28,13 +28,17 @@ def load_image_from_url(url, mode="RGB"):
 
 
 def save_tensor_to_file(tensor, filename, mode="RGB"):
-    img = save_tensor_to_image(tensor)
-    img.save(filename)
+    assert tensor.shape[0] == 1
+    img = save_tensor_to_images(tensor)
+    img[0].save(filename)
 
 
-def save_tensor_to_image(tensor, mode="RGB"):
-    assert 0.0 <= tensor.min() and tensor.max() <= 1.0
-    return V.to_pil_image(tensor[0].detach().cpu().float(), mode)
+def save_tensor_to_images(tensor, mode="RGB"):
+    assert tensor.min() >= 0.0 and tensor.max() <= 1.0
+    return [
+        V.to_pil_image(tensor[j].detach().cpu().float(), mode)
+        for j in range(tensor.shape[0])
+    ]
 
 
 try:
@@ -45,30 +49,47 @@ except ImportError:
     pass
 
 
-def show_result_in_notebook(result, title="Generated Image"):
-    clear_output()
+def show_result_in_notebook(title="Generated Image"):
+    class ResultWidget:
+        def __init__(self, title):
+            self.title = title
+            self.html = ipywidgets.HTML(value="")
+            self.img = ipywidgets.Image(
+                value=b"",
+                format="webp",
+                layout=ipywidgets.Layout(width="100%", margin="0"),
+            )
+            self.box = ipywidgets.VBox(
+                [self.html, self.img], layout=ipywidgets.Layout(display="none")
+            )
+            display(self.box)
 
-    for out in result.images:
-        html = ipywidgets.HTML(value=f"""
-        <h3>{title}</h3>
-        <ul style="font-size: 16px;">
-            <li>octave: {result.octave}</li>
-            <li>size: {out.size}</li>
-            <li>scale: 1/{result.scale}</li>
-            <li>loss: {result.loss:0.4f}</li>
-        </ul>""")
+        def __call__(self, result):
+            assert len(result.images) == 1, "Only one image supported."
 
-        buffer = io.BytesIO()
-        out.save(buffer, format="webp", quality=80)
-        buffer.seek(0)
+            for out in save_tensor_to_images(result.images):
+                self.html.set_trait(
+                    "value",
+                    f"""
+                    <h3>{self.title}</h3>
+                    <ul style="font-size: 16px;">
+                        <li>octave: {result.octave}</li>
+                        <li>iteration: {result.iteration}</li>
+                        <li>size: {out.size}</li>
+                        <li>scale: 1/{result.scale}</li>
+                        <li>loss: {result.loss:0.4f}</li>
+                    </ul>""",
+                )
 
-        img = ipywidgets.Image(
-            value=buffer.read(),
-            format="webp",
-            layout=ipywidgets.Layout(width="100%", margin="0"),
-        )
-        box = ipywidgets.VBox([html, img])
-        display(box)
+                buffer = io.BytesIO()
+                out.save(buffer, format="webp", quality=80)
+                buffer.seek(0)
+
+                self.img.set_trait("value", buffer.read())
+                self.box.layout = ipywidgets.Layout(display="box")
+                break
+
+    return ResultWidget(title)
 
 
 def load_image_from_notebook():
@@ -76,11 +97,11 @@ def load_image_from_notebook():
     a single-use iterator over the images that were collected.
     """
 
-    class ImageUpload(ipywidgets.FileUpload):
+    class ImageUploadWidget(ipywidgets.FileUpload):
         def __init__(self):
-            super(ImageUpload, self).__init__(accept="image/*", multiple=True)
+            super(ImageUploadWidget, self).__init__(accept="image/*", multiple=True)
 
-            self.observe(self.add_to_results, names='value')
+            self.observe(self.add_to_results, names="value")
             self.results = []
 
         def get(self):
@@ -91,12 +112,12 @@ def load_image_from_notebook():
                 yield self.get()
 
         def add_to_results(self, change):
-            for filename, data in change['new'].items():
-                buffer = BytesIO(data['content'])
+            for filename, data in change["new"].items():
+                buffer = BytesIO(data["content"])
                 image = PIL.Image.open(buffer)
                 self.results.append(image)
-            self.set_trait('value', {})
+            self.set_trait("value", {})
 
-    widget = ImageUpload()
+    widget = ImageUploadWidget()
     display(widget)
     return widget
