@@ -39,6 +39,9 @@ class TextureSynthesizer:
 
         try:
             for i, loss in self._iterate(opt):
+                # Constrain the image to the valid color range.
+                image.data.clamp_(0.0, 1.0)
+
                 # Check if there were any problems in the gradients...
                 if i == -1:
                     log.warn(f"\nOptimization diverged, loss increased by {loss:0.2f}!")
@@ -46,8 +49,7 @@ class TextureSynthesizer:
 
                 # Update the progress bar with the result!
                 progress.update(i, loss=loss)
-                # Constrain the image to the valid color range.
-                image.data.clamp_(0.0, 1.0)
+
                 # Return back to the user...
                 yield loss, image
 

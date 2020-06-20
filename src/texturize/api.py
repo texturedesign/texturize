@@ -229,7 +229,7 @@ def process_iterations(
         if noise > 0.0:
             b, _, h, w = seed_img.shape
             seed_img += seed_img.new_empty(size=(b, 1, h, w)).normal_(std=noise)
-            seed_img.clamp_(0.0, 1.0)
+        seed_img.clamp_(0.0, 1.0)
         log.debug("<- seed:", tuple(seed_img.shape[2:]), "\n")
         del result_img
 

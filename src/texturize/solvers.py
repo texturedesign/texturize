@@ -32,11 +32,11 @@ class SolverLBFGS:
             loss, scores = self.objective(self.image)
 
             self.image.grad.data.clamp_(-1e-1, +1e-1)
-            return loss.detach()
+            return loss
 
         # This optimizer decides when and how to call the objective.
         self.optimizer.step(_wrap)
-        return loss.item(), scores
+        return loss, scores
 
 
 class SolverSGD:
