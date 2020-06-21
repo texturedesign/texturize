@@ -17,9 +17,9 @@ class SolverLBFGS:
         self.iteration = 1
 
     def step(self):
-        # The first 10 iterations, we increase the learning rate slowly to full value.
+        # The first 20 iterations, we increase the learning rate slowly to full value.
         for group in self.optimizer.param_groups:
-            group["lr"] = self.lr * min(self.iteration / 10.0, 1.0) ** 2
+            group["lr"] = self.lr * min(self.iteration / 20.0, 1.0) ** 2
 
         # Each iteration we reset the accumulated gradients and compute the objective.
         loss, scores = None, None

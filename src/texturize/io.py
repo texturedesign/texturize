@@ -102,7 +102,7 @@ def show_result_in_notebook(title=None):
                     {self.title}
                     <ul style="font-size: 16px;">
                         <li>octave: {result.octave}</li>
-                        <li>iteration: {result.iteration}</li>
+                        <li>iteration: {abs(result.iteration)}</li>
                         <li>size: {out.size}</li>
                         <li>scale: 1/{result.scale}</li>
                         <li>loss: {result.loss:0.4f}</li>

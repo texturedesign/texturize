@@ -44,6 +44,7 @@ class TextureSynthesizer:
 
                 # Check if there were any problems in the gradients...
                 if i == -1:
+                    assert loss < 8.0, f"Optimizer diverged, loss increase {loss:0.2f}!"
                     log.warn(f"\nOptimization diverged, loss increased by {loss:0.2f}!")
                     continue
 
@@ -58,7 +59,7 @@ class TextureSynthesizer:
             progress.finish()
 
     def _iterate(self, opt):
-        previous, plateau = None, 0
+        previous, plateau = float("+inf"), 0
         for i in range(self.max_iter):
             # Perform one step of the optimization.
             loss, scores = opt.step()
@@ -77,4 +78,4 @@ class TextureSynthesizer:
             else:
                 plateau = 0
 
-            previous = loss
+            previous = min(loss, previous)
