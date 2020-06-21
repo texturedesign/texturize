@@ -1,5 +1,6 @@
 # neural-texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
+import time
 import random
 import urllib
 import asyncio
@@ -77,9 +78,9 @@ def show_image_as_tiles(image, count, size):
     display(box)
 
 
-def show_result_in_notebook(title=None):
+def show_result_in_notebook(throttle=float('+inf'), title=None):
     class ResultWidget:
-        def __init__(self, title):
+        def __init__(self, throttle, title):
             self.title = f"<h3>{title}</h3>" if title is not None else ""
             self.html = ipywidgets.HTML(value="")
             self.img = ipywidgets.Image(
@@ -92,10 +93,15 @@ def show_result_in_notebook(title=None):
             )
             display(self.box)
 
+            self.throttle = throttle
+            self.start_time = time.time()
+            self.total_sent = 0
+
         def update(self, result):
             assert len(result.images) == 1, "Only one image supported."
 
             for out in save_tensor_to_images(result.images):
+                last, first = bool(result.iteration < 0), bool(result.iteration == 0)
                 self.html.set_trait(
                     "value",
                     f"""
@@ -110,14 +116,22 @@ def show_result_in_notebook(title=None):
                 )
 
                 buffer = io.BytesIO()
-                out.save(buffer, format="webp", quality=80)
+                out.save(buffer, format="webp", quality=80 if last else 60)
+
+                elapsed = time.time() - self.start_time
+                if not last and self.total_sent / elapsed > self.throttle:
+                    break
+                if first and (self.total_sent + buffer.tell()) > self.throttle:
+                    break
+
+                self.total_sent += buffer.tell()
                 buffer.seek(0)
 
                 self.img.set_trait("value", buffer.read())
                 self.box.layout = ipywidgets.Layout(display="box")
                 break
 
-    return ResultWidget(title)
+    return ResultWidget(throttle, title)
 
 
 def load_image_from_notebook():
