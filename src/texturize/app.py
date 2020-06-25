@@ -16,9 +16,9 @@ class TextureSynthesizer:
     def __init__(self, device, encoder, lr, threshold, max_iter):
         self.device = device
         self.encoder = encoder
-        self.lr = lr
         self.threshold = threshold
         self.max_iter = max_iter
+        self.learning_rate = lr
 
     def prepare(self, critics, image):
         """Extract the features from the source texture and initialize the critics.
@@ -33,26 +33,20 @@ class TextureSynthesizer:
         image = seed_img.to(self.device).requires_grad_(True)
 
         obj = MultiCriticObjective(self.encoder, critics)
-        opt = SolverLBFGS(obj, image, lr=self.lr)
+        opt = SolverLBFGS(obj, image, lr=self.learning_rate)
 
         progress = log.create_progress_bar(self.max_iter)
 
         try:
-            for i, loss in self._iterate(opt):
+            for i, loss, lr, retries in self._iterate(opt):
                 # Constrain the image to the valid color range.
                 image.data.clamp_(0.0, 1.0)
-
-                # Check if there were any problems in the gradients...
-                if i == -1:
-                    assert loss < 8.0, f"Optimizer diverged, loss increase {loss:0.2f}!"
-                    log.warn(f"\nOptimization diverged, loss increased by {loss:0.2f}!")
-                    continue
 
                 # Update the progress bar with the result!
                 progress.update(i, loss=loss)
 
                 # Return back to the user...
-                yield loss, image
+                yield loss, image, lr, retries
 
             progress.max_value = i + 1
         finally:
@@ -62,16 +56,16 @@ class TextureSynthesizer:
         previous, plateau = float("+inf"), 0
         for i in range(self.max_iter):
             # Perform one step of the optimization.
-            loss, scores = opt.step()
+            loss, scores, progress = opt.step()
 
-            if i > 0 and loss > previous * 1.5:
-                yield -1, loss / previous
+            if not progress:
+                continue
 
             # Return this iteration to the caller...
-            yield i, loss
+            yield i, loss, opt.lr, opt.retries
 
             # See if we can terminate the optimization early.
-            if i > 0 and abs(loss - previous) <= self.threshold:
+            if i > 10 and abs(loss - previous) <= self.threshold:
                 plateau += 1
                 if plateau > 2:
                     break

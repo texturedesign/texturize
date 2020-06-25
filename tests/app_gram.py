@@ -11,7 +11,8 @@ def test_gram_single(image, size=(96, 88)):
         assert len(r.images) == 1
         assert isinstance(r.images, torch.Tensor)
         assert r.images.shape[2:] == (size[1] // r.scale, size[0] // r.scale)
-        # assert r.loss < 5e-2
+        assert abs(r.iteration) < 200
+        assert r.loss < 5e-3
 
 
 def test_gram_variations(image, size=(72, 64)):
@@ -21,4 +22,5 @@ def test_gram_variations(image, size=(72, 64)):
         assert len(r.images) == 2
         assert isinstance(r.images, torch.Tensor)
         assert r.images.shape[2:] == (size[1] // r.scale, size[0] // r.scale)
-        # assert r.loss < 5e-1
+        assert abs(r.iteration) < 200
+        assert r.loss < 5e-3

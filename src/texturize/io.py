@@ -108,15 +108,17 @@ def show_result_in_notebook(throttle=float('+inf'), title=None):
                     {self.title}
                     <ul style="font-size: 16px;">
                         <li>octave: {result.octave}</li>
-                        <li>iteration: {abs(result.iteration)}</li>
                         <li>size: {out.size}</li>
                         <li>scale: 1/{result.scale}</li>
-                        <li>loss: {result.loss:0.4f}</li>
+                        <li>iteration: {abs(result.iteration)}</li>
+                        <li>loss: {result.loss:0.3e}</li>
+                        <li>rate: {result.rate:0.3e}</li>
+                        <li>retries: {result.retries}</li>
                     </ul>""",
                 )
 
                 buffer = io.BytesIO()
-                out.save(buffer, format="webp", quality=80 if last else 60)
+                out.save(buffer, format="webp", quality=90 if last else 80)
 
                 elapsed = time.time() - self.start_time
                 if not last and self.total_sent / elapsed > self.throttle:

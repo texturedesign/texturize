@@ -125,7 +125,7 @@ def get_default_log():
 
 
 Result = collections.namedtuple(
-    "Result", ["images", "octave", "scale", "iteration", "loss"]
+    "Result", ["images", "octave", "scale", "iteration", "loss", "rate", "retries"]
 )
 
 
@@ -138,7 +138,9 @@ def process_octaves(sources, **kwargs):
         if r.iteration >= 0:
             continue
 
-        yield Result(r.images, r.octave, r.scale, -r.iteration, r.loss)
+        yield Result(
+            r.images, r.octave, r.scale, -r.iteration, r.loss, r.rate, r.retries
+        )
 
 
 @torch.no_grad()
@@ -149,7 +151,7 @@ def process_iterations(
     octaves: int = -1,
     mode: str = "gram",
     variations: int = 1,
-    iterations: int = 99,
+    iterations: int = 200,
     threshold: float = 1e-5,
     device: str = None,
     precision: str = None,
@@ -171,16 +173,13 @@ def process_iterations(
 
         if mode == "patch":
             critics = [PatchCritic(layer=l) for l in ("3_1", "2_1", "1_1")]
-            noise = 0.0
         elif mode == "gram":
             critics = [
                 GramMatrixCritic(layer=l)
                 for l in ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
             ]
-            noise = 0.1
         elif mode == "hist":
             critics = [HistogramCritic(layer=l) for l in ("1_1", "2_1", "3_1")]
-            noise = 0.1
 
         texture_critics.append((texture_img, critics))
 
@@ -225,26 +224,22 @@ def process_iterations(
         result_size = size[1] // scale, size[0] // scale
         seed_img = F.interpolate(
             result_img, result_size, mode="bicubic", align_corners=False
-        )
-        if noise > 0.0:
-            b, _, h, w = seed_img.shape
-            seed_img += seed_img.new_empty(size=(b, 1, h, w)).normal_(std=noise)
-        seed_img.clamp_(0.0, 1.0)
+        ).clamp_(0.0, 1.0)
         log.debug("<- seed:", tuple(seed_img.shape[2:]), "\n")
         del result_img
 
         # Now we can enable the automatic gradient computation to run the optimization.
         with torch.enable_grad():
             # The first iteration contains the rescaled image with noise.
-            yield Result(seed_img, octave, scale, 0, float("+inf"))
+            yield Result(seed_img, octave, scale, 0, float("+inf"), 1.0, 0)
 
-            for iteration, (loss, result_img) in enumerate(
-                synth.run(log, seed_img.to(dtype=precision), all_critics)
+            for iteration, (loss, result_img, lr, retries) in enumerate(
+                synth.run(log, seed_img.to(dtype=precision), all_critics), start=1
             ):
-                yield Result(result_img, octave, scale, iteration + 1, loss)
+                yield Result(result_img, octave, scale, iteration, loss, lr, retries)
 
             # The last iteration is repeated to indicate completion.
-            yield Result(result_img, octave, scale, -(iteration + 1), loss)
+            yield Result(result_img, octave, scale, -iteration, loss, lr, retries)
         del synth
 
 

@@ -28,6 +28,11 @@ class GramMatrixCritic:
         yield 1e4 * result.flatten(1).mean(dim=1)
 
     def from_features(self, features):
+        with torch.no_grad():
+            def norm(x):
+                return torch.mean(x, dim=(2, 3), keepdim=True).clamp(min=1.0)
+            self.means = (norm(features[self.pair[0]]), norm(features[self.pair[1]]))
+
         self.gram = self._prepare_gram(features)
 
     def get_layers(self):
@@ -45,8 +50,8 @@ class GramMatrixCritic:
         return gram
 
     def _prepare_gram(self, features):
-        lower = features[self.pair[0]] + self.offset
-        upper = features[self.pair[1]] + self.offset
+        lower = features[self.pair[0]] / self.means[0] + self.offset
+        upper = features[self.pair[1]] / self.means[1] + self.offset
         return self._gram_matrix(
             lower, F.interpolate(upper, size=lower.shape[2:], mode="nearest")
         )
