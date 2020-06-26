@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "texturize"
 description = "🤖🖌️ Automatically generate new textures similar to a source photograph."
-version = "0.7.0"
+version = "0.8.0"
 authors = ["Alex J. Champandard <445208+alexjc@users.noreply.github.com>"]
 readme = "README.rst"
 repository = "https://github.com/photogeniq/neural-texturize"
