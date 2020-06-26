@@ -78,10 +78,14 @@ def show_image_as_tiles(image, count, size):
     display(box)
 
 
-def show_result_in_notebook(throttle=float('+inf'), title=None):
+def show_result_in_notebook(throttle=None, title=None):
     class ResultWidget:
         def __init__(self, throttle, title):
             self.title = f"<h3>{title}</h3>" if title is not None else ""
+            self.style = """<style>
+                    ul.statistics li { float: left; width: 48%; }
+                    ul.statistics { font-size: 16px; }
+                </style>"""
             self.html = ipywidgets.HTML(value="")
             self.img = ipywidgets.Image(
                 value=b"",
@@ -101,23 +105,24 @@ def show_result_in_notebook(throttle=float('+inf'), title=None):
             assert len(result.images) == 1, "Only one image supported."
 
             for out in save_tensor_to_images(result.images):
+                elapsed = time.time() - self.start_time
                 last, first = bool(result.iteration < 0), bool(result.iteration == 0)
                 self.html.set_trait(
                     "value",
-                    f"""
-                    {self.title}
-                    <ul style="font-size: 16px;">
-                        <li>octave: {result.octave}</li>
-                        <li>size: {out.size}</li>
+                    f"""{self.title}
+                        {self.style}
+                    <ul class="statistics">
                         <li>scale: 1/{result.scale}</li>
-                        <li>iteration: {abs(result.iteration)}</li>
                         <li>loss: {result.loss:0.3e}</li>
+                        <li>size: {out.size}</li>
                         <li>rate: {result.rate:0.3e}</li>
+                        <li>octave: {result.octave}</li>
                         <li>retries: {result.retries}</li>
+                        <li>elapsed: {int(elapsed)}s</li>
+                        <li>iteration: {abs(result.iteration)}</li>
                     </ul>""",
                 )
 
-                elapsed = time.time() - self.start_time
                 if not last and self.total_sent / elapsed > self.throttle:
                     break
 
@@ -133,6 +138,14 @@ def show_result_in_notebook(throttle=float('+inf'), title=None):
                 if first:
                     self.box.layout = ipywidgets.Layout(display="box")
                 break
+
+    try:
+        # Notebooks running remotely on Google Colab require throttle to work reliably.
+        import google.colab
+        throttle = throttle or 16_384
+    except ImportError:
+        # When running Jupyter locally, you get the full experience by default!
+        throttle = throttle or float('+inf')
 
     return ResultWidget(throttle, title)
 
