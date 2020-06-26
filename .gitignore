@@ -6,8 +6,10 @@ __pycache__/
 # Tests / results / generated.
 output/
 tmp/
-examples/*
 *.webp
+*.gif
+*.png
+*.jpg
 
 # Distribution / packaging / build.
 htmlcov/
