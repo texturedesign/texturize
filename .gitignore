@@ -6,6 +6,8 @@ __pycache__/
 # Tests / results / generated.
 output/
 tmp/
+examples/*
+*.webp
 
 # Distribution / packaging / build.
 htmlcov/

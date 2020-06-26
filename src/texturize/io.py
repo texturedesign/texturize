@@ -117,20 +117,21 @@ def show_result_in_notebook(throttle=float('+inf'), title=None):
                     </ul>""",
                 )
 
-                buffer = io.BytesIO()
-                out.save(buffer, format="webp", quality=90 if last else 80)
-
                 elapsed = time.time() - self.start_time
                 if not last and self.total_sent / elapsed > self.throttle:
                     break
-                if first and (self.total_sent + buffer.tell()) > self.throttle:
-                    break
 
-                self.total_sent += buffer.tell()
+                buffer = io.BytesIO()
+                if out.size[0] * out.size[1] < 192 * 192:
+                    out.save(buffer, format="webp", method=6, lossless=True)
+                else:
+                    out.save(buffer, format="webp", quality=90 if last else 50)
+
                 buffer.seek(0)
-
                 self.img.set_trait("value", buffer.read())
-                self.box.layout = ipywidgets.Layout(display="box")
+                self.total_sent += buffer.tell()
+                if first:
+                    self.box.layout = ipywidgets.Layout(display="box")
                 break
 
     return ResultWidget(throttle, title)

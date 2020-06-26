@@ -97,11 +97,24 @@ class NotebookLog:
         def update(self, value, **keywords):
             self.bar.value = value
 
+        def reset(self, iterations):
+            self.bar.max = iterations
+            self.bar.value = 0
+            self.bar.layout = ipywidgets.Layout(width="100%", margin="0")
+
         def finish(self):
-            self.bar.close()
+            self.bar.layout = ipywidgets.Layout(display="none")
+    
+    def __init__(self):
+        self.progress = None
 
     def create_progress_bar(self, iterations):
-        return NotebookLog.ProgressBar(iterations)
+        if self.progress is None:
+            self.progress = NotebookLog.ProgressBar(iterations)
+        else:
+            self.progress.reset(iterations)
+
+        return self.progress
 
     def debug(self, *args):
         pass
