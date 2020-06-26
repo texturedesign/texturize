@@ -109,7 +109,7 @@ class PatchCritic:
     def from_features(self, features):
         self.patches = self.prepare(features).detach()
         self.matcher.update_sources(self.patches)
-        self.iter = 0
+        self.iteration = 0
 
     def prepare(self, features):
         f = features[self.layer]
@@ -127,18 +127,24 @@ class PatchCritic:
                     raise
 
     def evaluate(self, features):
-        self.iter += 1
+        self.iteration += 1
 
         target = self.prepare(features)
         self.matcher.update_target(target)
 
         with torch.no_grad():
-            if target.flatten(1).shape[1] < 1_048_576:
+            if self.iteration == 1 or target.flatten(1).shape[1] < 1_048_576:
                 self.auto_split(self.matcher.compare_features_matrix)
             else:
                 self.auto_split(self.matcher.compare_features_identity)
-                self.auto_split(self.matcher.compare_features_random, radius=8)
-                self.auto_split(self.matcher.compare_features_nearby, radius=1)
+                self.auto_split(
+                    self.matcher.compare_features_random,
+                    radius=[16, 8, 4][min(2, self.iteration // 33)],
+                )
+                self.auto_split(
+                    self.matcher.compare_features_nearby,
+                    radius=[4, 2, 1][self.iteration % 3],
+                )
 
             matched_target = self.matcher.reconstruct_target()
 

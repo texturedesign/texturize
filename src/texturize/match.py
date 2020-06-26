@@ -318,7 +318,7 @@ class FeatureMatcher:
             for (t1, t2) in iterate_range(a.shape[2], split):
                 assert t2 >= t1
 
-                if radius in (16, -1):
+                if radius == -1:
                     # Generate random grid size (h, w) with indices in range of B.
                     h, w = t2 - t1, a.shape[3]
                     indices = torch.empty(
