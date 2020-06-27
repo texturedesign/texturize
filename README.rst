@@ -1,12 +1,80 @@
 neural-texturize
 ================
 
-.. image:: docs/dirt-x4.webp
+.. image:: docs/gravel-x4.webp
 
-Automatically generate new textures similar to your source image.  Useful if you
-want to make variations on a theme or expand the size of an existing texture.
+A command-line tool and Python library to automatically generate new textures similar
+to a source image or photograph.  It's useful in the context of computer graphics if
+you want to make variations on a theme or expand the size of an existing texture.
 
-1. Examples & Usage
+This tool is powered by deep learning technology — using a combination of convolution
+networks and example-based optimization to synthesize images.  We're aiming to make
+``neural-texturize`` the highest-quality open source library available!
+
+1. `Examples & Demos <#1-examples--demos>`_
+2. `Installation <#2-installation>`_
+3. `Commands & Usage <#3-commands--usage>`_
+
+|Python Version| |License Type| |Project Stars|
+
+
+1. Examples & Demos
+===================
+
+The examples are available as notebooks, and you can run them directly in-browser
+thanks to Jupyter and Google Colab:
+
+* **Gravel** — `online demo <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Demo_Gravel.ipynb>`__ and `source notebook <https://github.com/photogeniq/neural-texturize/blob/master/examples/Demo_Gravel.ipynb>`__.
+* **Grass** — `online demo <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Demo_Grass.ipynb>`__ and `source notebook <https://github.com/photogeniq/neural-texturize/blob/master/examples/Demo_Grass.ipynb>`__.
+
+These demo materials are released under the Creative Commons `BY-NC-SA license <https://creativecommons.org/licenses/by-nc-sa/3.0/>`_, including the text, images and code.
+
+.. image:: docs/grass-x4.webp
+
+
+2. Installation
+===============
+
+If you're a developer and want to install the library locally, start by cloning the
+repository to your local disk:
+
+.. code-block:: bash
+
+    git clone https://github.com/photogeniq/neural-texturize.git
+
+Then, you can create a new virtual environment called ``myenv`` by installing
+`Miniconda <https://docs.conda.io/en/latest/miniconda.html>`_ and calling the following
+commands, depending whether you want to run on CPU or GPU (via CUDA):
+
+.. code-block:: bash
+
+    cd neural-texturize
+
+    # a) Use this if you have an *Nvidia GPU only*.
+    conda env create -n myenv -f tasks/setup-cuda.yml
+
+    # b) Fallback if you just want to run on CPU.
+    conda env create -n myenv -f tasks/setup-cpu.yml
+
+Once the virtual environment is created, you can activate it and finish the setup of
+``neural-texturize`` with these commands:
+
+.. code-block:: bash
+
+    conda activate myenv
+    poetry install
+
+Finally, you can check if everything worked by calling the script:
+
+.. code-block:: bash
+
+    texturize
+
+You can use ``conda env remove -n myenv`` to delete the virtual environment once you
+are done.
+
+
+3. Commands & Usage
 ===================
 
 The main script takes a source image as a texture, and generates a new output that
@@ -50,43 +118,15 @@ Here are the command-line options currently available::
         --verbose               Display more information on stdout.
         -h, --help              Show this message.
 
-2. Installation
-===============
+----
 
-This repository uses submodules, so you'll need to clone it recursively to ensure
-dependencies are available:
+|Python Version| |License Type| |Project Stars|
 
-.. code-block:: bash
+.. |Python Version| image:: https://img.shields.io/pypi/pyversions/texturize
+    :target: https://www.python.org/
 
-    git clone --recursive https://github.com/photogeniq/neural-texturize.git
+.. |License Type| image:: https://img.shields.io/badge/license-AGPL-blue.svg
+    :target: https://github.com/photogeniq/neural-texturize/blob/master/LICENSE
 
-Then, you can create a new virtual environment called ``myenv`` by installing
-`Miniconda <https://docs.conda.io/en/latest/miniconda.html>`_ and calling the following
-commands, depending whether you want to run on CPU or GPU (via CUDA):
-
-.. code-block:: bash
-
-    cd neural-texturize
-
-    # a) Use this if you have an *Nvidia GPU only*.
-    conda env create -n myenv -f tasks/setup-cuda.yml
-
-    # b) Fallback if you just want to run on CPU.
-    conda env create -n myenv -f tasks/setup-cpu.yml
-
-Once the virtual environment is created, you can activate it and finish the setup of
-``neural-texturize`` with these commands:
-
-.. code-block:: bash
-
-    conda activate myenv
-    poetry install
-
-Finally, you can check if everything worked by calling the script:
-
-.. code-block:: bash
-
-    texturize
-
-You can use ``conda env remove -n myenv`` to delete the virtual environment once you
-are done.
+.. |Project Stars| image:: https://img.shields.io/github/stars/photogeniq/neural-texturize.svg?style=flat
+    :target: https://github.com/photogeniq/neural-texturize/stargazers
