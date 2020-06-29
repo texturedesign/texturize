@@ -267,7 +267,7 @@ def process_single_file(source, log: object, output: str = None, **config: dict)
                 source=os.path.splitext(os.path.basename(source))[0],
                 variation=i,
             )
-            image.save(filename)
+            image.resize(size=config['size'], resample=0).save(filename)
             log.debug("\n=> output:", filename)
             filenames.append(filename)
 
