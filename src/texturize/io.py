@@ -7,6 +7,7 @@ import asyncio
 from io import BytesIO
 
 import PIL.Image
+import torch
 import torchvision.transforms.functional as V
 
 
@@ -19,8 +20,8 @@ def load_image_from_file(filename, mode="RGB"):
     return PIL.Image.open(filename).convert(mode)
 
 
-def load_tensor_from_image(image, device):
-    return V.to_tensor(image).unsqueeze(0).to(device)
+def load_tensor_from_image(image, device, dtype=torch.float32):
+    return V.to_tensor(image).unsqueeze(0).to(device, dtype)
 
 
 def load_image_from_url(url, mode="RGB"):

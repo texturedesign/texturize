@@ -6,16 +6,16 @@ r"""                         _   _            _              _
  |_| |_|\___|\__,_|_|  \__,_|_|  \__\___/_/\_\\__|\__,_|_|  |_/___\___|
 
 Usage:
-    texturize SOURCE... [--size=WxH] [--output=FILE] [--variations=V] [--seed=SEED]
-                        [--mode=MODE] [--octaves=O] [--threshold=H] [--iterations=I]
-                        [--device=DEVICE] [--precision=PRECISION] [--quiet] [--verbose]
+    texturize remix SOURCE... [options]
+    texturize remake SOURCE... as TARGET [options]
+    texturize blend SOURCE... TARGET [options]
     texturize --help
 
 Examples:
-    texturize samples/grass.webp --size=1440x960 --output=result.png
-    texturize samples/gravel.png --iterations=200 --precision=1e-5
-    texturize samples/sand.tiff  --output=tmp/{source}-{octave}.webp
-    texturize samples/brick.jpg  --device=cpu
+    texturize remix samples/grass.webp --size=1440x960 --output=result.png
+    texturize remix samples/gravel.png --iterations=200 --precision=1e-5
+    texturize remix samples/sand.tiff  --output=tmp/{source}-{octave}.webp
+    texturize remix samples/brick.jpg  --device=cpu
 
 Options:
     SOURCE                  Path to source image to use as texture.
@@ -43,17 +43,19 @@ Options:
 # warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 #
 
+import os
 import glob
 import itertools
 
 import docopt
-import progressbar
 from schema import Schema, Use, And, Or
 
 import torch
 
 from . import __version__
-from .api import process_single_file, ansi, ConsoleLog
+from . import commands
+from .api import process_single_command
+from .logger import ansi, ConsoleLog
 
 
 def validate(config):
@@ -64,6 +66,7 @@ def validate(config):
     sch = Schema(
         {
             "SOURCE": [str],
+            "TARGET": Or(None, str),
             "size": And(Use(split_size), tuple),
             "output": str,
             "variations": Use(int),
@@ -86,10 +89,12 @@ def validate(config):
 def main():
     # Parse the command-line options based on the script's documentation.
     config = docopt.docopt(__doc__[356:], version=__version__, help=False)
+    command = [cmd for cmd in ("remix", "remake", "blend") if config[cmd]][0]
+
     # Ensure the user-specified values are correct.
     config = validate(config)
-    filenames, seed, quiet, verbose, help = [
-        config.pop(k) for k in ("SOURCE", "seed", "quiet", "verbose", "help")
+    sources, target, output, seed, quiet, verbose, help = [
+        config.pop(k) for k in ("SOURCE", "TARGET", "output", "seed", "quiet", "verbose", "help")
     ]
 
     # Setup the output logging and display the logo!
@@ -100,16 +105,32 @@ def main():
         return
 
     # Scan all the files based on the patterns specified.
-    files = itertools.chain.from_iterable(glob.glob(s) for s in filenames)
+    files = itertools.chain.from_iterable(glob.glob(s) for s in sources)
     for filename in files:
         # If there's a random seed, use the same for all images.
         if seed is not None:
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
 
+        if command == "remix":
+            cmd = commands.Remix(filename)
+        if command == "remake":
+            cmd = commands.Remix(filename, target)
+        if command == "blend":
+            cmd = commands.Blend(filename, target)
+
         # Process the files one by one, each may have multiple variations.
         try:
-            result = process_single_file(filename, log, **config)
+            config["output"] = output
+            config["output"] = config["output"].replace(
+                "{source}", os.path.splitext(os.path.basename(filename))[0]
+            )
+            if target:
+                config["output"] = config["output"].replace(
+                    "{target}", os.path.splitext(os.path.basename(target))[0]
+                )
+
+            result = process_single_command(cmd, log, **config)
             log.notice(ansi.PINK + "\n=> result:", result, ansi.ENDC)
         except KeyboardInterrupt:
             print(ansi.PINK + "\nCTRL+C detected, interrupting..." + ansi.ENDC)
