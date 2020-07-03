@@ -93,14 +93,14 @@ def main():
 
     # Ensure the user-specified values are correct.
     config = validate(config)
-    sources, target, output, seed, quiet, verbose, help = [
-        config.pop(k) for k in ("SOURCE", "TARGET", "output", "seed", "quiet", "verbose", "help")
+    sources, target, output, seed, mode = [
+        config.pop(k) for k in ("SOURCE", "TARGET", "output", "seed", "mode")
     ]
 
     # Setup the output logging and display the logo!
-    log = ConsoleLog(quiet, verbose)
+    log = ConsoleLog(config.pop("quiet"), config.pop("verbose"))
     log.notice(ansi.PINK + "    " + __doc__[:356] + ansi.ENDC)
-    if help is True:
+    if config.pop("help") is True:
         log.notice(__doc__[356:])
         return
 
@@ -113,11 +113,11 @@ def main():
             torch.cuda.manual_seed(seed)
 
         if command == "remix":
-            cmd = commands.Remix(filename)
+            cmd = commands.Remix(filename, mode=mode)
         if command == "remake":
-            cmd = commands.Remix(filename, target)
+            cmd = commands.Remix(filename, target, mode=mode)
         if command == "blend":
-            cmd = commands.Blend(filename, target)
+            cmd = commands.Blend(filename, target, mode=mode)
 
         # Process the files one by one, each may have multiple variations.
         try:

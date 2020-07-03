@@ -8,40 +8,49 @@ from .app import Application
 from .critics import PatchCritic
 
 
-from creativeai.image.encoders import models
+def create_default_critics(mode):
+    if mode == "gram":
+        layers = ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
+    else:
+        layers = ("3_1", "2_1", "1_1")
+
+    if mode == "patch":
+        return {l: PatchCritic(layer=l) for l in layers}
+    elif mode == "gram":
+        return {l: GramMatrixCritic(layer=l) for l in layers}
+    elif mode == "hist":
+        return {l: HistogramCritic(layer=l) for l in layers}
 
 
 class Command:
     def prepare_critics(self, app, scale):
         raise NotImplementedError
 
-    def _prepare_critics(self, app, scale, all_textures, all_critics):
-        for (texture_img, critics) in zip(all_textures, all_critics):
-            texture_cur = F.interpolate(
-                texture_img,
-                scale_factor=1.0 / scale,
-                mode="area",
-                recompute_scale_factor=False,
-            ).to(device=app.device, dtype=app.precision)
+    def _prepare_critics(self, app, scale, texture, critics):
+        texture_cur = F.interpolate(
+            texture,
+            scale_factor=1.0 / scale,
+            mode="area",
+            recompute_scale_factor=False,
+        ).to(device=app.device, dtype=app.precision)
 
-            feats = dict(
-                app.encoder.extract(texture_cur, [c.get_layers() for c in critics])
-            )
-            for critic in critics:
-                critic.from_features(feats)
-            app.log.debug("<- texture:", tuple(texture_cur.shape[2:]))
+        layers = [c.get_layers() for c in critics]
+        feats = dict(app.encoder.extract(texture_cur, layers))
+        for critic in critics:
+            critic.from_features(feats)
+        app.log.debug("<- texture:", tuple(texture_cur.shape[2:]))
 
     def prepare_seed_tensor(self, size, previous=None):
         raise NotImplementedError
 
 
 class Remix(Command):
-    def __init__(self, source):
-        self.critics = [PatchCritic(layer=l) for l in ("3_1", "2_1", "1_1")]
+    def __init__(self, source, mode):
+        self.critics = list(create_default_critics(mode).values())
         self.source = load_tensor_from_file(source, device="cpu")
 
     def prepare_critics(self, app, scale):
-        self._prepare_critics(app, scale, [self.source], [self.critics])
+        self._prepare_critics(app, scale, self.source, self.critics)
         return [self.critics]
 
     def prepare_seed_tensor(self, size, previous=None):
@@ -63,13 +72,13 @@ class Remix(Command):
 
 
 class Remake(Command):
-    def __init__(self, target, source):
-        self.critics = [PatchCritic(layer=l) for l in ("3_1", "2_1", "1_1")]
+    def __init__(self, target, source, mode):
+        self.critics = list(create_default_critics(mode).values())
         self.source = load_tensor_from_file(source, device="cpu")
         self.target = load_tensor_from_file(target, device="cpu")
 
     def prepare_critics(self, app, scale):
-        self._prepare_critics(app, scale, [self.source], [self.critics])
+        self._prepare_critics(app, scale, self.source, self.critics)
         return [self.critics]
 
     def prepare_seed_tensor(self, size, previous=None):
@@ -96,8 +105,8 @@ class Remake(Command):
 
 
 class Blend(Command):
-    def __init__(self, sources):
-        self.critics = {l: PatchCritic(layer=l) for l in ("3_1", "2_1", "1_1")}
+    def __init__(self, sources, mode):
+        self.critics = create_default_critics(mode)
         self.sources = [load_tensor_from_file(s, device="cpu") for s in sources]
 
     def prepare_critics(self, app, scale):

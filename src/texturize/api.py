@@ -11,30 +11,12 @@ from .app import TextureSynthesizer, Application, Result
 from .io import *
 
 
-def create_default_critics(mode, count):
-    assert False
-
-    if mode == "gram":
-        layers = ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
-    else:
-        layers = ("3_1", "2_1", "1_1")
-
-    for _ in range(count):
-        if mode == "patch":
-            yield [PatchCritic(layer=l) for l in layers]
-        elif mode == "gram":
-            yield [GramMatrixCritic(layer=l) for l in layers]
-        elif mode == "hist":
-            yield [HistogramCritic(layer=l) for l in layers]
-
-
 @torch.no_grad()
 def process_iterations(
     cmd,
     log: object = None,
     size: tuple = None,
     octaves: int = -1,
-    mode: str = "gram",
     variations: int = 1,
     iterations: int = 200,
     threshold: float = 1e-5,
