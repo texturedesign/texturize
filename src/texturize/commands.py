@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 from .io import load_tensor_from_file
 from .app import Application
-from .critics import PatchCritic
+from .critics import PatchCritic, GramMatrixCritic, HistogramCritic
 
 
 def create_default_critics(mode):
@@ -53,18 +53,14 @@ class Remix(Command):
         self._prepare_critics(app, scale, self.source, self.critics)
         return [self.critics]
 
-    def prepare_seed_tensor(self, size, previous=None):
+    def prepare_seed_tensor(self, app, size, previous=None):
         if previous is None:
             b, _, h, w = size
-            # TODO: Make the device and precision accessible here.
-            mean = self.source.mean(dim=(2, 3), keepdim=True).to("cuda")
-            result = torch.empty((b, 1, h, w), device="cuda", dtype=torch.float32)
-            result = (
-                (result.normal_(std=0.1) + mean)
-                .clamp_(0.0, 1.0)
-                .to(dtype=torch.float32)
+            mean = self.source.mean(dim=(2, 3), keepdim=True).to(device=app.device)
+            result = torch.empty((b, 1, h, w), device=app.device, dtype=torch.float32)
+            return (
+                (result.normal_(std=0.1) + mean).clamp(0.0, 1.0).to(dtype=app.precision)
             )
-            return result
 
         return F.interpolate(
             previous, size=size[2:], mode="bicubic", align_corners=False,
@@ -81,22 +77,21 @@ class Remake(Command):
         self._prepare_critics(app, scale, self.source, self.critics)
         return [self.critics]
 
-    def prepare_seed_tensor(self, size, previous=None):
-        # TODO: Create helper that perform this interpolation modularly, could be decoder.
+    def prepare_seed_tensor(self, app, size, previous=None):
         seed = F.interpolate(
-            self.target, size=size[2:], mode="bicubic", align_corners=False
+            self.target.to(device=app.device),
+            size=size[2:],
+            mode="bicubic",
+            align_corners=False,
         )
 
-        # TODO: Create helpers to match two feature maps, in this case by whitening/normalizing.
         source_mean = self.source.mean(dim=(2, 3), keepdim=True)
         source_std = self.source.std(dim=(2, 3), keepdim=True)
-
         seed_mean = seed.mean(dim=(2, 3), keepdim=True)
         seed_std = seed.std(dim=(2, 3), keepdim=True)
 
-        return (source_mean + source_std * ((seed - seed_mean) / seed_std)).clamp(
-            0.0, 1.0
-        )
+        result = source_mean + source_std * ((seed - seed_mean) / seed_std)
+        return result.clamp(0.0, 1.0).to(dtype=app.precision)
 
     def process(self, app, *args):
         return super(Remake, self).process(
@@ -118,7 +113,7 @@ class Blend(Command):
                 scale_factor=1.0 / scale,
                 mode="area",
                 recompute_scale_factor=False,
-            ).to(device="cuda", dtype=torch.float32)
+            ).to(device=app.device, dtype=app.precision)
             for img in self.sources
         ]
 
@@ -131,7 +126,7 @@ class Blend(Command):
 
         return [list(self.critics.values())]
 
-    def prepare_seed_tensor(self, size, previous=None):
+    def prepare_seed_tensor(self, app, size, previous=None):
         if previous is None:
             b, _, h, w = size
             mean = (
@@ -139,14 +134,10 @@ class Blend(Command):
                 .mean(dim=(0, 2, 3), keepdim=True)
                 .to("cuda")
             )
-            result = torch.empty((b, 1, h, w), device="cuda", dtype=torch.float32)
-            result = (
-                (result.normal_(std=0.1) + mean)
-                .clamp_(0.0, 1.0)
-                .to(dtype=torch.float32)
-            )
-            return result
+            result = torch.empty((b, 1, h, w), device=app.device, dtype=torch.float32)
+            result = (result.normal_(std=0.1) + mean).clamp(0.0, 1.0)
+            return result.to(dtype=app.precision)
 
         return F.interpolate(
-            previous, size=size[2:], mode="bicubic", align_corners=False,
-        ).clamp_(0.0, 1.0)
+            previous, size=size[2:], mode="bicubic", align_corners=False
+        ).clamp(0.0, 1.0)

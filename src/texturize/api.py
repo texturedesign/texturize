@@ -43,7 +43,7 @@ def process_iterations(
         critics = cmd.prepare_critics(app, scale)
 
         result_size = (variations, 3, size[1] // scale, size[0] // scale)
-        seed = cmd.prepare_seed_tensor(result_size, previous=seed)
+        seed = cmd.prepare_seed_tensor(app, result_size, previous=seed)
         app.log.debug("<- seed:", tuple(seed.shape[2:]), "\n")
 
         for result in app.process_octave(
