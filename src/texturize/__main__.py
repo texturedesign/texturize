@@ -53,8 +53,7 @@ from schema import Schema, Use, And, Or
 import torch
 
 from . import __version__
-from . import commands
-from .api import process_single_command
+from . import api, io, commands
 from .logger import ansi, ConsoleLog
 
 
@@ -112,12 +111,15 @@ def main():
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
 
+        source_img = io.load_image_from_file(filename)
+        target_img = io.load_image_from_file(target) if target else None
+
         if command == "remix":
-            cmd = commands.Remix(filename, mode=mode)
+            cmd = commands.Remix(source_img, mode=mode)
         if command == "remake":
-            cmd = commands.Remix(filename, target, mode=mode)
+            cmd = commands.Remake(source_img, target_img, mode=mode)
         if command == "blend":
-            cmd = commands.Blend(filename, target, mode=mode)
+            cmd = commands.Blend(source_img, target_img, mode=mode)
 
         # Process the files one by one, each may have multiple variations.
         try:
@@ -130,7 +132,7 @@ def main():
                     "{target}", os.path.splitext(os.path.basename(target))[0]
                 )
 
-            result = process_single_command(cmd, log, **config)
+            result = api.process_single_command(cmd, log, **config)
             log.notice(ansi.PINK + "\n=> result:", result, ansi.ENDC)
         except KeyboardInterrupt:
             print(ansi.PINK + "\nCTRL+C detected, interrupting..." + ansi.ENDC)

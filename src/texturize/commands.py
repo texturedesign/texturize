@@ -3,7 +3,7 @@
 import torch
 import torch.nn.functional as F
 
-from .io import load_tensor_from_file
+from .io import load_tensor_from_image
 from .app import Application
 from .critics import PatchCritic, GramMatrixCritic, HistogramCritic
 
@@ -47,7 +47,7 @@ class Command:
 class Remix(Command):
     def __init__(self, source, mode):
         self.critics = list(create_default_critics(mode).values())
-        self.source = load_tensor_from_file(source, device="cpu")
+        self.source = load_tensor_from_image(source, device="cpu")
 
     def prepare_critics(self, app, scale):
         self._prepare_critics(app, scale, self.source, self.critics)
@@ -70,8 +70,8 @@ class Remix(Command):
 class Remake(Command):
     def __init__(self, target, source, mode):
         self.critics = list(create_default_critics(mode).values())
-        self.source = load_tensor_from_file(source, device="cpu")
-        self.target = load_tensor_from_file(target, device="cpu")
+        self.source = load_tensor_from_image(source, device="cpu")
+        self.target = load_tensor_from_image(target, device="cpu")
 
     def prepare_critics(self, app, scale):
         self._prepare_critics(app, scale, self.source, self.critics)
@@ -102,7 +102,7 @@ class Remake(Command):
 class Blend(Command):
     def __init__(self, sources, mode):
         self.critics = create_default_critics(mode)
-        self.sources = [load_tensor_from_file(s, device="cpu") for s in sources]
+        self.sources = [load_tensor_from_image(s, device="cpu") for s in sources]
 
     def prepare_critics(self, app, scale):
         layers = [c.get_layers() for c in self.critics.values()]
