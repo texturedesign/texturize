@@ -85,59 +85,10 @@ class Remake(Command):
             align_corners=False,
         )
 
-        source_mean = self.source.mean(dim=(2, 3), keepdim=True)
-        source_std = self.source.std(dim=(2, 3), keepdim=True)
+        source_mean = self.source.mean(dim=(2, 3), keepdim=True).to(app.device)
+        source_std = self.source.std(dim=(2, 3), keepdim=True).to(app.device)
         seed_mean = seed.mean(dim=(2, 3), keepdim=True)
         seed_std = seed.std(dim=(2, 3), keepdim=True)
 
         result = source_mean + source_std * ((seed - seed_mean) / seed_std)
         return result.clamp(0.0, 1.0).to(dtype=app.precision)
-
-    def process(self, app, *args):
-        return super(Remake, self).process(
-            app, size=self.target.shape[2:][::-1], octaves=1
-        )
-
-
-class Blend(Command):
-    def __init__(self, sources, mode):
-        self.critics = create_default_critics(mode)
-        self.sources = [load_tensor_from_image(s, device="cpu") for s in sources]
-
-    def prepare_critics(self, app, scale):
-        layers = [c.get_layers() for c in self.critics.values()]
-
-        sources = [
-            F.interpolate(
-                img,
-                scale_factor=1.0 / scale,
-                mode="area",
-                recompute_scale_factor=False,
-            ).to(device=app.device, dtype=app.precision)
-            for img in self.sources
-        ]
-
-        for features in zip(*[app.encoder.extract(f, layers) for f in sources]):
-            assert features[0][0] == features[1][0]
-            layer = features[1][0]
-
-            mix = features[0][1] * 0.5 + 0.5 * features[1][1]
-            self.critics[layer].from_features({layer: mix})
-
-        return [list(self.critics.values())]
-
-    def prepare_seed_tensor(self, app, size, previous=None):
-        if previous is None:
-            b, _, h, w = size
-            mean = (
-                torch.cat(self.sources, dim=0)
-                .mean(dim=(0, 2, 3), keepdim=True)
-                .to("cuda")
-            )
-            result = torch.empty((b, 1, h, w), device=app.device, dtype=torch.float32)
-            result = (result.normal_(std=0.1) + mean).clamp(0.0, 1.0)
-            return result.to(dtype=app.precision)
-
-        return F.interpolate(
-            previous, size=size[2:], mode="bicubic", align_corners=False
-        ).clamp(0.0, 1.0)

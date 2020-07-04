@@ -7,8 +7,7 @@ r"""                         _   _            _              _
 
 Usage:
     texturize remix SOURCE... [options]
-    texturize remake SOURCE... as TARGET [options]
-    texturize blend SOURCE... TARGET [options]
+    texturize remake SOURCE as TARGET [options]
     texturize --help
 
 Examples:
@@ -88,7 +87,7 @@ def validate(config):
 def main():
     # Parse the command-line options based on the script's documentation.
     config = docopt.docopt(__doc__[356:], version=__version__, help=False)
-    command = [cmd for cmd in ("remix", "remake", "blend") if config[cmd]][0]
+    command = [cmd for cmd in ("remix", "remake") if config[cmd]][0]
 
     # Ensure the user-specified values are correct.
     config = validate(config)
@@ -118,8 +117,8 @@ def main():
             cmd = commands.Remix(source_img, mode=mode)
         if command == "remake":
             cmd = commands.Remake(source_img, target_img, mode=mode)
-        if command == "blend":
-            cmd = commands.Blend(source_img, target_img, mode=mode)
+            config["octaves"] = 1
+            config["size"] = target_img.size
 
         # Process the files one by one, each may have multiple variations.
         try:
