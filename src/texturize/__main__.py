@@ -7,7 +7,7 @@ r"""                         _   _            _              _
 
 Usage:
     texturize remix SOURCE... [options]
-    texturize remake SOURCE as TARGET [options]
+    texturize remake TARGET like SOURCE [options]
     texturize --help
 
 Examples:
