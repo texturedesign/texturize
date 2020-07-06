@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-r"""                         _   _            _              _         
-  _ __   ___ _   _ _ __ __ _| | | |_ _____  _| |_ _   _ _ __(_)_______ 
- | '_ \ / _ \ | | | '__/ _` | | | __/ _ \ \/ / __| | | | '__| |_  / _ \
- | | | |  __/ |_| | | | (_| | | | ||  __/>  <| |_| |_| | |  | |/ /  __/
- |_| |_|\___|\__,_|_|  \__,_|_|  \__\___/_/\_\\__|\__,_|_|  |_/___\___|
+r"""  _            _              _         
+ | |_ _____  _| |_ _   _ _ __(_)_______ 
+ | __/ _ \ \/ / __| | | | '__| |_  / _ \
+ | ||  __/>  <| |_| |_| | |  | |/ /  __/
+  \__\___/_/\_\\__|\__,_|_|  |_/___\___|
 
 Usage:
     texturize remix SOURCE... [options]
@@ -36,9 +36,9 @@ Options:
 #
 # Copyright (c) 2020, Novelty Factory KG.
 #
-# neural-texturize is free software: you can redistribute it and/or modify it under the
-# terms of the GNU Affero General Public License version 3. This program is distributed
-# in the hope that it will be useful but WITHOUT ANY WARRANTY; without even the implied
+# texturize is free software: you can redistribute it and/or modify it under the terms
+# of the GNU Affero General Public License version 3. This program is distributed in
+# the hope that it will be useful but WITHOUT ANY WARRANTY; without even the implied
 # warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 #
 
@@ -86,7 +86,7 @@ def validate(config):
 
 def main():
     # Parse the command-line options based on the script's documentation.
-    config = docopt.docopt(__doc__[356:], version=__version__, help=False)
+    config = docopt.docopt(__doc__[204:], version=__version__, help=False)
     command = [cmd for cmd in ("remix", "remake") if config[cmd]][0]
 
     # Ensure the user-specified values are correct.
@@ -97,9 +97,9 @@ def main():
 
     # Setup the output logging and display the logo!
     log = ConsoleLog(config.pop("quiet"), config.pop("verbose"))
-    log.notice(ansi.PINK + "    " + __doc__[:356] + ansi.ENDC)
+    log.notice(ansi.PINK + __doc__[:204] + ansi.ENDC)
     if config.pop("help") is True:
-        log.notice(__doc__[356:])
+        log.notice(__doc__[204:])
         return
 
     # Scan all the files based on the patterns specified.
