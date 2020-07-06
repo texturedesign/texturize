@@ -57,7 +57,7 @@ Remix Library API
 
 .. code-block:: python
 
-    from texturize import api, commands
+    from texturize import api, commands, io
 
     # The input could be any PIL Image in RGB mode.
     image = io.load_image_from_file("input.png")
@@ -134,21 +134,17 @@ Remake Online Tool
 
 ----
 
-3. Options
-==========
+3. Options & Usage
+==================
 
-For details about the command-line options, see the tool itself:
+For details about the command-line usage of the tool, see the tool itself:
 
 .. code-block:: bash
 
     texturize --help
 
-Here are the command-line options currently available::
-
-    Usage:
-        texturize SOURCE... [--size=WxH] [--output=FILE] [--variations=V] [--seed=SEED]
-                            [--mode=MODE] [--octaves=O] [--threshold=H] [--iterations=I]
-                            [--device=DEVICE] [--precision=PRECISION] [--quiet] [--verbose]
+Here are the command-line options currently available, which apply to most of the
+commands above::
 
     Options:
         SOURCE                  Path to source image to use as texture.
