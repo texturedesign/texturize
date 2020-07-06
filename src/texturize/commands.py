@@ -45,7 +45,7 @@ class Command:
 
 
 class Remix(Command):
-    def __init__(self, source, mode):
+    def __init__(self, source, mode="patch"):
         self.critics = list(create_default_critics(mode).values())
         self.source = load_tensor_from_image(source, device="cpu")
 
@@ -68,7 +68,7 @@ class Remix(Command):
 
 
 class Remake(Command):
-    def __init__(self, target, source, mode):
+    def __init__(self, target, source, mode="gram"):
         self.critics = list(create_default_critics(mode).values())
         self.source = load_tensor_from_image(source, device="cpu")
         self.target = load_tensor_from_image(target, device="cpu")
