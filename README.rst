@@ -1,5 +1,5 @@
-neural-texturize
-================
+texturize
+=========
 
 .. image:: docs/gravel-x4.webp
 
@@ -7,9 +7,9 @@ A command-line tool and Python library to automatically generate new textures si
 to a source image or photograph.  It's useful in the context of computer graphics if
 you want to make variations on a theme or expand the size of an existing texture.
 
-This tool is powered by deep learning technology — using a combination of convolution
-networks and example-based optimization to synthesize images.  We're aiming to make
-``neural-texturize`` the highest-quality open source library available!
+This software is powered by deep learning technology — using a combination of
+convolution networks and example-based optimization to synthesize images.  We're
+building ``texturize`` as the highest-quality open source library available!
 
 1. `Examples & Demos <#1-examples--demos>`_
 2. `Commands <#2-commands>`_
@@ -59,9 +59,16 @@ Remix Library API
 
     from texturize import api, commands
 
-    remix = commands.Remix(image)
-    for result in api.process_octaves(remix):
+    # The input could be any PIL Image in RGB mode.
+    image = io.load_image_from_file("input.png")
+
+    # Coarse-to-fine synthesis runs one octave at a time.
+    remix = commands.Remix(image, mode="patch")
+    for result in api.process_octaves(remix, octaves=5, threshold=1e-3):
         pass
+
+    # The output can be saved in any PIL-supported format.
+    result.image.save("output.png")
 
 
 Remix Examples
@@ -72,7 +79,7 @@ Remix Examples
 Remix Online Tool
 ~~~~~~~~~~~~~~~~~
 
-* `colab notebook <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Demo_Gravel.ipynb>`__
+* `colab notebook <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Tool_Remix.ipynb>`__
 
 ----
 
@@ -102,20 +109,28 @@ Remake Library API
 
     from texturize import api, commands
 
-    remake = commands.Remake(image)
-    for result in api.process_octaves(remake):
+    # The input could be any PIL Image in RGB mode.
+    image = io.load_image_from_file("input.png")
+
+    # Only process one octave to retain photo-realistic output.
+    remake = commands.Remake(image, mode="gram")
+    for result in api.process_octaves(remake, octaves=1, threshold=1e-7):
         pass
+
+    # The output can be saved in any PIL-supported format.
+    result.image.save("output.png")
+
 
 
 Remake Examples
 ~~~~~~~~~~~~~~~
 
-.. image:: docs/remix-grass.webp
+.. image:: docs/remake-grass.webp
 
 Remake Online Tool
 ~~~~~~~~~~~~~~~~~~
 
-* `colab notebook <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Demo_Gravel.ipynb>`__
+* `colab notebook <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Tool_Remake.ipynb>`__
 
 ----
 
