@@ -129,8 +129,6 @@ def main():
             config["octaves"] = 1
             config["size"] = target_img.size
         if command == "mashup":
-            source_img = io.random_crop(source_img, (256, 512))
-            target_img = io.random_crop(target_img, (256, 512))
             cmd = commands.Mashup([source_img, target_img], mode=mode)
             del config["weights"]
 
