@@ -76,13 +76,21 @@ def process_octaves(cmd, **kwargs):
 
 def process_single_command(cmd, log: object, output: str = None, **config: dict):
     for result in process_octaves(cmd, log=log, **config):
+        result = cmd.finalize_octave(result)
+
         images = save_tensor_to_images(result.images)
         filenames = []
         for i, image in enumerate(images):
             # Save the files for each octave to disk.
-            filename = output.format(octave=result.octave, variation=i,)
-            image.resize(size=config["size"], resample=0).save(filename)
+            filename = output.format(
+                octave=result.octave,
+                variation=f"_{i}" if len(images) > 0 else "",
+                command=cmd.__class__.__name__.lower()
+            )
+            image.resize(size=config["size"], resample=0).save(
+                filename, lossless=True, compress=6
+            )
             log.debug("\n=> output:", filename)
             filenames.append(filename)
 
-    return filenames
+    return result, filenames

@@ -7,7 +7,7 @@ r"""  _            _              _
 
 Usage:
     texturize remix SOURCE... [options]
-    texturize remake TARGET like SOURCE [options]
+    texturize remake TARGET [like] SOURCE [options] --weights=WEIGHTS
     texturize --help
 
 Examples:
@@ -20,7 +20,8 @@ Options:
     SOURCE                  Path to source image to use as texture.
     -s WxH, --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
     -o FILE, --output=FILE  Filename for saving the result, includes format variables.
-                            [default: {source}_gen{variation}.png]
+                            [default: {command}_{source}{variation}.png]
+    --weights=WEIGHTS       Comma-separated list of blend weights. [default: 1.0]
     --variations=V          Number of images to generate at same time. [default: 1]
     --seed=SEED             Configure the random number generation.
     --mode=MODE             Either "patch" or "gram" to specify critics. [default: gram]
@@ -61,12 +62,16 @@ def validate(config):
     def split_size(size: str):
         return tuple(map(int, size.split("x")))
 
+    def split_string(text: str):
+        return tuple(map(float, text.split(",")))
+
     sch = Schema(
         {
             "SOURCE": [str],
             "TARGET": Or(None, str),
             "size": And(Use(split_size), tuple),
             "output": str,
+            "weights": And(Use(split_string), tuple),
             "variations": Use(int),
             "seed": Or(None, Use(int)),
             "mode": Or("patch", "gram", "hist"),
@@ -115,8 +120,11 @@ def main():
 
         if command == "remix":
             cmd = commands.Remix(source_img, mode=mode)
+            del config["weights"]
         if command == "remake":
-            cmd = commands.Remake(source_img, target_img, mode=mode)
+            cmd = commands.Remake(
+                target_img, source_img, mode=mode, weights=config.pop("weights")
+            )
             config["octaves"] = 1
             config["size"] = target_img.size
 
@@ -131,8 +139,8 @@ def main():
                     "{target}", os.path.splitext(os.path.basename(target))[0]
                 )
 
-            result = api.process_single_command(cmd, log, **config)
-            log.notice(ansi.PINK + "\n=> result:", result, ansi.ENDC)
+            result, filenames = api.process_single_command(cmd, log, **config)
+            log.notice(ansi.PINK + "\n=> result:", filenames, ansi.ENDC)
         except KeyboardInterrupt:
             print(ansi.PINK + "\nCTRL+C detected, interrupting..." + ansi.ENDC)
             break
