@@ -28,11 +28,13 @@ class GramMatrixCritic:
         yield 1e4 * result.flatten(1).mean(dim=1)
 
     def from_features(self, features):
-        with torch.no_grad():
-            def norm(x):
-                return torch.mean(x, dim=(2, 3), keepdim=True).clamp(min=1.0)
-            self.means = (norm(features[self.pair[0]]), norm(features[self.pair[1]]))
+        def norm(xs):
+            if not isinstance(xs, (tuple, list)):
+                xs = (xs,)
+            ms = [torch.mean(x, dim=(2, 3), keepdim=True) for x in xs]
+            return (sum(ms) / len(ms)).clamp(min=1.0)
 
+        self.means = (norm(features[self.pair[0]]), norm(features[self.pair[1]]))
         self.gram = self._prepare_gram(features)
 
     def get_layers(self):
@@ -50,11 +52,15 @@ class GramMatrixCritic:
         return gram
 
     def _prepare_gram(self, features):
-        lower = features[self.pair[0]] / self.means[0] + self.offset
-        upper = features[self.pair[1]] / self.means[1] + self.offset
-        return self._gram_matrix(
-            lower, F.interpolate(upper, size=lower.shape[2:], mode="nearest")
-        )
+        result = 0.0
+        for l, u in zip(features[self.pair[0]], features[self.pair[1]]):
+            lower = l / self.means[0] + self.offset
+            upper = u / self.means[1] + self.offset
+            gram = self._gram_matrix(
+                lower, F.interpolate(upper, size=lower.shape[2:], mode="nearest")
+            )
+            result += gram
+        return result / len(features[self.pair[0]])
 
 
 class HistogramCritic:
@@ -75,7 +81,9 @@ class HistogramCritic:
         self.features = features[self.layer]
 
     def random_directions(self, count, device):
-        directions = torch.empty((count, count, 1, 1), device=device).uniform_(-1.0, +1.0)
+        directions = torch.empty((count, count, 1, 1), device=device).uniform_(
+            -1.0, +1.0
+        )
         return directions / torch.norm(directions, dim=1, keepdim=True)
 
     def sorted_projection(self, directions, features):
@@ -107,19 +115,22 @@ class PatchCritic:
         return {self.layer}
 
     def from_features(self, features):
-        self.patches = self.prepare(features).detach()
+        self.patches = self.prepare(features)
         self.matcher.update_sources(self.patches)
         self.iteration = 0
 
     def prepare(self, features):
-        f = features[self.layer]
-        return self.builder.extract(f)
+        if isinstance(features[self.layer], (tuple, list)):
+            sources = [self.builder.extract(f) for f in features[self.layer]]
+            return torch.cat(sources, dim=2)
+        else:
+            return self.builder.extract(features[self.layer])
 
     def auto_split(self, function, *arguments, **keywords):
         key = (self.matcher.target.shape, function)
         for i in self.split_hints.get(key, range(16)):
             try:
-                result = function(*arguments, split=2**i, **keywords)
+                result = function(*arguments, split=2 ** i, **keywords)
                 self.split_hints[key] = [i]
                 return result
             except RuntimeError as e:

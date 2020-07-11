@@ -7,6 +7,7 @@ r"""  _            _              _
 
 Usage:
     texturize remix SOURCE... [options]
+    texturize mashup SOURCE TARGET [options]
     texturize remake TARGET [like] SOURCE [options] --weights=WEIGHTS
     texturize --help
 
@@ -92,7 +93,7 @@ def validate(config):
 def main():
     # Parse the command-line options based on the script's documentation.
     config = docopt.docopt(__doc__[204:], version=__version__, help=False)
-    command = [cmd for cmd in ("remix", "remake") if config[cmd]][0]
+    command = [cmd for cmd in ("remix", "mashup", "remake") if config[cmd]][0]
 
     # Ensure the user-specified values are correct.
     config = validate(config)
@@ -127,6 +128,11 @@ def main():
             )
             config["octaves"] = 1
             config["size"] = target_img.size
+        if command == "mashup":
+            source_img = io.random_crop(source_img, (256, 512))
+            target_img = io.random_crop(target_img, (256, 512))
+            cmd = commands.Mashup([source_img, target_img], mode=mode)
+            del config["weights"]
 
         # Process the files one by one, each may have multiple variations.
         try:
