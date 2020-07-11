@@ -8,6 +8,9 @@ from .app import Application, Result
 from .critics import PatchCritic, GramMatrixCritic, HistogramCritic
 
 
+__all__ = ["Remix", "Mashup", "Enhance", "Remake"]
+
+
 def create_default_critics(mode):
     if mode == "gram":
         layers = ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
@@ -47,6 +50,22 @@ class Command:
         app.log.debug("<- texture:", tuple(texture_cur.shape[2:]))
 
 
+def renormalize(origin, target):
+    target_mean = target.mean(dim=(2, 3), keepdim=True)
+    target_std = target.std(dim=(2, 3), keepdim=True)
+    origin_mean = origin.mean(dim=(2, 3), keepdim=True)
+    origin_std = origin.std(dim=(2, 3), keepdim=True)
+
+    result = target_mean + target_std * ((origin - origin_mean) / origin_std)
+    return result.clamp(0.0, 1.0)
+
+
+def enlarge(image, size):
+    return F.interpolate(image, size=size, mode="bicubic", align_corners=False).clamp(
+        0.0, 1.0
+    )
+
+
 class Remix(Command):
     def __init__(self, source, mode="patch"):
         self.critics = list(create_default_critics(mode).values())
@@ -65,9 +84,25 @@ class Remix(Command):
                 (result.normal_(std=0.1) + mean).clamp(0.0, 1.0).to(dtype=app.precision)
             )
 
-        return F.interpolate(
-            previous, size=size[2:], mode="bicubic", align_corners=False,
-        ).clamp_(0.0, 1.0)
+        return enlarge(previous, size=size[2:])
+
+
+class Enhance(Command):
+    def __init__(self, target, source, mode="gram"):
+        self.critics = list(create_default_critics(mode).values())
+        self.source = load_tensor_from_image(source, device="cpu")
+        self.target = load_tensor_from_image(target, device="cpu")
+
+    def prepare_critics(self, app, scale):
+        self._prepare_critics(app, scale, self.source, self.critics)
+        return [self.critics]
+
+    def prepare_seed_tensor(self, app, size, previous=None):
+        if previous is not None:
+            return enlarge(previous, size=size[2:])
+
+        seed = enlarge(self.target.to(device=app.device), size=size[2:])
+        return renormalize(seed, self.source.to(app.device)).to(dtype=app.precision)
 
 
 class Remake(Command):
@@ -82,20 +117,8 @@ class Remake(Command):
         return [self.critics]
 
     def prepare_seed_tensor(self, app, size, previous=None):
-        seed = F.interpolate(
-            self.target.to(device=app.device),
-            size=size[2:],
-            mode="bicubic",
-            align_corners=False,
-        )
-
-        source_mean = self.source.mean(dim=(2, 3), keepdim=True).to(app.device)
-        source_std = self.source.std(dim=(2, 3), keepdim=True).to(app.device)
-        seed_mean = seed.mean(dim=(2, 3), keepdim=True)
-        seed_std = seed.std(dim=(2, 3), keepdim=True)
-
-        result = source_mean + source_std * ((seed - seed_mean) / seed_std)
-        return result.clamp(0.0, 1.0).to(dtype=app.precision)
+        seed = enlarge(self.target.to(device=app.device), size=size[2:])
+        return renormalize(seed, self.source.to(app.device)).to(dtype=app.precision)
 
     def finalize_octave(self, result):
         device = result.images.device
@@ -125,7 +148,7 @@ class Mashup(Command):
         # Combine all features into a single dictionary.
         features = [dict(app.encoder.extract(f, layers)) for f in sources]
         features = dict(zip(features[0].keys(), zip(*[f.values() for f in features])))
-        
+
         # Initialize the critics from the combined dictionary.
         for critic in self.critics:
             critic.from_features(features)
