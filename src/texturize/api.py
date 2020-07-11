@@ -28,6 +28,7 @@ def process_iterations(
 
     # Setup the application to use throughout the synthesis.
     app = Application(log, device, precision)
+    threshold = threshold or {"patch": 1e-3, "gram": 1e-7, "hist": 1e-6}[cmd.mode]
 
     # Encoder used by all the critics at every octave.
     encoder = models.VGG11(pretrained=True, pool_type=torch.nn.AvgPool2d)

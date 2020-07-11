@@ -29,9 +29,10 @@ Options:
 
     --variations=V          Number of images to generate at same time. [default: 1]
     --seed=SEED             Configure the random number generation.
-    --mode=MODE             Either "patch" or "gram" to specify critics. [default: gram]
+    --mode=MODE             Either "patch" or "gram" to manually specify critics.
     --octaves=O             Number of octaves to process. [default: 5]
-    --threshold=T           Quality for optimization, lower is better. [default: 1e-4]
+    --threshold=T           Quality for optimization, lower is better.  Defaults to 1e-3
+                            for "patch" and 1e-7 for "gram".
     --iterations=I          Maximum number of iterations each octave. [default: 99]
     --device=DEVICE         Hardware to use, either "cpu" or "cuda".
     --precision=PRECISION   Floating-point format to use, "float16" or "float32".
@@ -81,9 +82,9 @@ def validate(config):
             "zoom": Use(int),
             "variations": Use(int),
             "seed": Or(None, Use(int)),
-            "mode": Or("patch", "gram", "hist"),
+            "mode": Or(None, "patch", "gram", "hist"),
             "octaves": Use(int),
-            "threshold": Use(float),
+            "threshold": Or(None, Use(float)),
             "iterations": Use(int),
             "device": Or(None, "cpu", "cuda"),
             "precision": Or(None, "float16", "float32"),

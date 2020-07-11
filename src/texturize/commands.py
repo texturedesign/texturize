@@ -67,8 +67,9 @@ def enlarge(image, size):
 
 
 class Remix(Command):
-    def __init__(self, source, mode="patch"):
-        self.critics = list(create_default_critics(mode).values())
+    def __init__(self, source, mode=None):
+        self.mode = mode or "patch"
+        self.critics = list(create_default_critics(self.mode).values())
         self.source = load_tensor_from_image(source, device="cpu")
 
     def prepare_critics(self, app, scale):
@@ -88,8 +89,9 @@ class Remix(Command):
 
 
 class Enhance(Command):
-    def __init__(self, target, source, mode="gram"):
-        self.critics = list(create_default_critics(mode).values())
+    def __init__(self, target, source, mode=None):
+        self.mode = mode or "gram"
+        self.critics = list(create_default_critics(self.mode).values())
         self.source = load_tensor_from_image(source, device="cpu")
         self.target = load_tensor_from_image(target, device="cpu")
 
@@ -106,8 +108,9 @@ class Enhance(Command):
 
 
 class Remake(Command):
-    def __init__(self, target, source, mode="gram", weights=[1.0]):
-        self.critics = list(create_default_critics(mode).values())
+    def __init__(self, target, source, mode=None, weights=[1.0]):
+        self.mode = mode or "gram"
+        self.critics = list(create_default_critics(self.mode).values())
         self.source = load_tensor_from_image(source, device="cpu")
         self.target = load_tensor_from_image(target, device="cpu")
         self.weights = torch.tensor(weights, dtype=torch.float32).view(-1, 1, 1, 1)
@@ -129,8 +132,9 @@ class Remake(Command):
 
 
 class Mashup(Command):
-    def __init__(self, sources, mode="gram"):
-        self.critics = list(create_default_critics(mode).values())
+    def __init__(self, sources, mode=None):
+        self.mode = mode or "patch"
+        self.critics = list(create_default_critics(self.mode).values())
         self.sources = [load_tensor_from_image(s, device="cpu") for s in sources]
 
     def prepare_critics(self, app, scale):
