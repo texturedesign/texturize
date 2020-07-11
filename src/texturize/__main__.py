@@ -7,6 +7,7 @@ r"""  _            _              _
 
 Usage:
     texturize remix SOURCE... [options]
+    texturize enhance TARGET [with] SOURCE [options] --zoom=ZOOM
     texturize mashup SOURCE TARGET [options]
     texturize remake TARGET [like] SOURCE [options] --weights=WEIGHTS
     texturize --help
@@ -22,7 +23,10 @@ Options:
     -s WxH, --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
     -o FILE, --output=FILE  Filename for saving the result, includes format variables.
                             [default: {command}_{source}{variation}.png]
+
     --weights=WEIGHTS       Comma-separated list of blend weights. [default: 1.0]
+    --zoom=ZOOM             Integer zoom factor for enhancing. [default: 2]
+
     --variations=V          Number of images to generate at same time. [default: 1]
     --seed=SEED             Configure the random number generation.
     --mode=MODE             Either "patch" or "gram" to specify critics. [default: gram]
@@ -46,6 +50,7 @@ Options:
 
 import os
 import glob
+import math
 import itertools
 
 import docopt
@@ -73,6 +78,7 @@ def validate(config):
             "size": And(Use(split_size), tuple),
             "output": str,
             "weights": And(Use(split_string), tuple),
+            "zoom": Use(int),
             "variations": Use(int),
             "seed": Or(None, Use(int)),
             "mode": Or("patch", "gram", "hist"),
@@ -93,7 +99,8 @@ def validate(config):
 def main():
     # Parse the command-line options based on the script's documentation.
     config = docopt.docopt(__doc__[204:], version=__version__, help=False)
-    command = [cmd for cmd in ("remix", "mashup", "remake") if config[cmd]][0]
+    all_commands = [cmd.lower() for cmd in commands.__all__]
+    command = [cmd for cmd in all_commands if config[cmd]][0]
 
     # Ensure the user-specified values are correct.
     config = validate(config)
@@ -116,21 +123,30 @@ def main():
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
 
+        # Load the images necessary.
         source_img = io.load_image_from_file(filename)
         target_img = io.load_image_from_file(target) if target else None
 
+        # Setup the command specified by user.
         if command == "remix":
             cmd = commands.Remix(source_img, mode=mode)
-            del config["weights"]
+        if command == "enhance":
+            zoom = config["zoom"]
+            cmd = commands.Enhance(target_img, source_img, mode=mode, zoom=zoom)
+            config["octaves"] = int(math.log(zoom, 2) + 1.0)
+            config["size"] = (target_img.size[0] * zoom, target_img.size[1] * zoom)
         if command == "remake":
             cmd = commands.Remake(
-                target_img, source_img, mode=mode, weights=config.pop("weights")
+                target_img, source_img, mode=mode, weights=config["weights"]
             )
             config["octaves"] = 1
             config["size"] = target_img.size
         if command == "mashup":
             cmd = commands.Mashup([source_img, target_img], mode=mode)
-            del config["weights"]
+
+        # Remove command-specific parameters.
+        del config["weights"]
+        del config["zoom"]
 
         # Process the files one by one, each may have multiple variations.
         try:
