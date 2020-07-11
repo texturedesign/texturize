@@ -104,3 +104,46 @@ class Remake(Command):
         target = self.target.to(device).expand(len(self.weights), -1, -1, -1)
         return Result(images * (weights + 0.0) + (1.0 - weights) * target, *result[1:])
 
+
+class Mashup(Command):
+    def __init__(self, sources, mode="gram"):
+        self.critics = list(create_default_critics(mode).values())
+        self.sources = [load_tensor_from_image(s, device="cpu") for s in sources]
+
+    def prepare_critics(self, app, scale):
+        layers = [c.get_layers() for c in self.critics]
+        sources = [
+            F.interpolate(
+                img,
+                scale_factor=1.0 / scale,
+                mode="area",
+                recompute_scale_factor=False,
+            ).to(device=app.device, dtype=app.precision)
+            for img in self.sources
+        ]
+
+        # Combine all features into a single dictionary.
+        features = [dict(app.encoder.extract(f, layers)) for f in sources]
+        features = dict(zip(features[0].keys(), zip(*[f.values() for f in features])))
+        
+        # Initialize the critics from the combined dictionary.
+        for critic in self.critics:
+            critic.from_features(features)
+
+        return [self.critics]
+
+    def prepare_seed_tensor(self, app, size, previous=None):
+        if previous is None:
+            b, _, h, w = size
+            mean = (
+                torch.cat(self.sources, dim=0)
+                .mean(dim=(0, 2, 3), keepdim=True)
+                .to(app.device)
+            )
+            result = torch.empty((b, 1, h, w), device=app.device, dtype=torch.float32)
+            result = (result.normal_(std=0.1) + mean).clamp(0.0, 1.0)
+            return result.to(dtype=app.precision)
+
+        return F.interpolate(
+            previous, size=size[2:], mode="bicubic", align_corners=False
+        ).clamp(0.0, 1.0)

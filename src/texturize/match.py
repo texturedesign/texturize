@@ -194,14 +194,16 @@ class Mapping:
             torch.arange(h, dtype=torch.float32)
             .mul(range[0] / h)
             .add(offset[0])
-            .view((b, -1, 1))
+            .view((1, h, 1))
+            .expand((b, h, 1))
             .long()
         )
         output[:, 1, :, :] = (
             torch.arange(w, dtype=torch.float32)
             .mul(range[1] / w)
             .add(offset[1])
-            .view((b, 1, -1))
+            .view((1, 1, w))
+            .expand((b, 1, w))
             .long()
         )
 

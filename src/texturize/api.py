@@ -84,7 +84,7 @@ def process_single_command(cmd, log: object, output: str = None, **config: dict)
             # Save the files for each octave to disk.
             filename = output.format(
                 octave=result.octave,
-                variation=f"_{i}" if len(images) > 0 else "",
+                variation=f"_{i}" if len(images) > 1 else "",
                 command=cmd.__class__.__name__.lower()
             )
             image.resize(size=config["size"], resample=0).save(
