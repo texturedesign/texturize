@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 
 from .io import load_tensor_from_image
-from .app import Application
+from .app import Application, Result
 from .critics import PatchCritic, GramMatrixCritic, HistogramCritic
 
 
@@ -26,6 +26,12 @@ class Command:
     def prepare_critics(self, app, scale):
         raise NotImplementedError
 
+    def prepare_seed_tensor(self, size, previous=None):
+        raise NotImplementedError
+
+    def finalize_octave(self, result):
+        return result
+
     def _prepare_critics(self, app, scale, texture, critics):
         texture_cur = F.interpolate(
             texture,
@@ -39,9 +45,6 @@ class Command:
         for critic in critics:
             critic.from_features(feats)
         app.log.debug("<- texture:", tuple(texture_cur.shape[2:]))
-
-    def prepare_seed_tensor(self, size, previous=None):
-        raise NotImplementedError
 
 
 class Remix(Command):
@@ -68,10 +71,11 @@ class Remix(Command):
 
 
 class Remake(Command):
-    def __init__(self, target, source, mode="gram"):
+    def __init__(self, target, source, mode="gram", weights=[1.0]):
         self.critics = list(create_default_critics(mode).values())
         self.source = load_tensor_from_image(source, device="cpu")
         self.target = load_tensor_from_image(target, device="cpu")
+        self.weights = torch.tensor(weights, dtype=torch.float32).view(-1, 1, 1, 1)
 
     def prepare_critics(self, app, scale):
         self._prepare_critics(app, scale, self.source, self.critics)
@@ -92,3 +96,11 @@ class Remake(Command):
 
         result = source_mean + source_std * ((seed - seed_mean) / seed_std)
         return result.clamp(0.0, 1.0).to(dtype=app.precision)
+
+    def finalize_octave(self, result):
+        device = result.images.device
+        weights = self.weights.to(device)
+        images = result.images.expand(len(self.weights), -1, -1, -1)
+        target = self.target.to(device).expand(len(self.weights), -1, -1, -1)
+        return Result(images * (weights + 0.0) + (1.0 - weights) * target, *result[1:])
+
