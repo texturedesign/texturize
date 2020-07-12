@@ -16,7 +16,7 @@ building ``texturize`` as the highest-quality open source library available!
 3. `Options & Usage <#3-options--usage>`_
 4. `Installation <#4-installation>`_
 
-|Python Version| |License Type| |Project Stars|
+|Python Version| |License Type| |Project Stars| |Build Status|
 
 ----
 
@@ -359,7 +359,7 @@ are done.
 
 ----
 
-|Python Version| |License Type| |Project Stars|
+|Python Version| |License Type| |Project Stars| |Build Status|
 
 .. |Python Version| image:: https://img.shields.io/pypi/pyversions/texturize
     :target: https://www.python.org/
@@ -369,3 +369,9 @@ are done.
 
 .. |Project Stars| image:: https://img.shields.io/github/stars/photogeniq/neural-texturize.svg?style=flat
     :target: https://github.com/photogeniq/neural-texturize/stargazers
+
+.. |Project Status| image:: https://img.shields.io/pypi/status/texturize
+    :alt: PyPI - Status
+
+.. |Build Status| image:: https://img.shields.io/github/workflow/status/photogeniq/neural-texturize/build
+    :alt: GitHub Workflow Status
