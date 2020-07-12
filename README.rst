@@ -16,10 +16,9 @@ building ``texturize`` as the highest-quality open source library available!
 3. `Options & Usage <#3-options--usage>`_
 4. `Installation <#4-installation>`_
 
-|Python Version| |License Type| |Project Stars|
+|Python Version| |License Type| |Project Stars| |Build Status|
 
-.. image:: docs/grass-x4.webp
-
+----
 
 1. Examples & Demos
 ===================
@@ -31,6 +30,8 @@ thanks to Jupyter and Google Colab:
 * **Grass** — `online demo <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Demo_Grass.ipynb>`__ and `source notebook <https://github.com/photogeniq/neural-texturize/blob/master/examples/Demo_Grass.ipynb>`__.
 
 These demo materials are released under the Creative Commons `BY-NC-SA license <https://creativecommons.org/licenses/by-nc-sa/3.0/>`_, including the text, images and code.
+
+.. image:: docs/grass-x4.webp
 
 2. Commands
 ===========
@@ -63,8 +64,8 @@ Remix Library API
     image = io.load_image_from_file("input.png")
 
     # Coarse-to-fine synthesis runs one octave at a time.
-    remix = commands.Remix(image, mode="patch")
-    for result in api.process_octaves(remix, octaves=5, threshold=1e-3):
+    remix = commands.Remix(image)
+    for result in api.process_octaves(remix, octaves=5):
         pass
 
     # The output can be saved in any PIL-supported format.
@@ -76,10 +77,9 @@ Remix Examples
 
 .. image:: docs/remix-gravel.webp
 
-Remix Online Tool
-~~~~~~~~~~~~~~~~~
-
-* `colab notebook <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Tool_Remix.ipynb>`__
+.. Remix Online Tool
+.. ~~~~~~~~~~~~~~~~~
+.. * `colab notebook <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Tool_Remix.ipynb>`__
 
 ----
 
@@ -95,7 +95,7 @@ Remake Command-Line
 .. code-block:: bash
 
     Usage:
-        texturize remake TARGET like SOURCE
+        texturize remake TARGET [like] SOURCE
 
     Examples:
         texturize remake samples/grass1.webp like samples/grass2.webp
@@ -110,16 +110,16 @@ Remake Library API
     from texturize import api, commands
 
     # The input could be any PIL Image in RGB mode.
-    image = io.load_image_from_file("input.png")
+    target = io.load_image_from_file("input1.png")
+    source = io.load_image_from_file("input2.png")
 
     # Only process one octave to retain photo-realistic output.
-    remake = commands.Remake(image, mode="gram")
-    for result in api.process_octaves(remake, octaves=1, threshold=1e-7):
+    remake = commands.Remake(target, source)
+    for result in api.process_octaves(remake, octaves=1):
         pass
 
     # The output can be saved in any PIL-supported format.
     result.image.save("output.png")
-
 
 
 Remake Examples
@@ -127,12 +127,114 @@ Remake Examples
 
 .. image:: docs/remake-grass.webp
 
-Remake Online Tool
-~~~~~~~~~~~~~~~~~~
-
-* `colab notebook <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Tool_Remake.ipynb>`__
+.. Remake Online Tool
+.. ~~~~~~~~~~~~~~~~~~
+.. * `colab notebook <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Tool_Remake.ipynb>`__
 
 ----
+
+c) MASHUP
+---------
+
+    Combine multiple textures together into one output.
+
+
+Mashup Command-Line
+~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+    Usage:
+        texturize mashup SOURCE...
+
+    Examples:
+        texturize mashup samples/grass1.webp samples/grass2.webp
+        texturize mashup samples/gravel1.png samples/gravel2.png
+
+
+Mashup Library API
+~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    from texturize import api, commands
+
+    # The input could be any PIL Image in RGB mode.
+    sources = [
+        io.load_image_from_file("input1.png"),
+        io.load_image_from_file("input2.png"),
+    ]
+
+    # Only process one octave to retain photo-realistic output.
+    mashup = commands.Mashup(sources)
+    for result in api.process_octaves(mashup, octaves=5):
+        pass
+
+    # The output can be saved in any PIL-supported format.
+    result.image.save("output.png")
+
+
+Mashup Examples
+~~~~~~~~~~~~~~~
+
+.. image:: docs/mashup-gravel.webp
+
+.. Mashup Online Tool
+.. ~~~~~~~~~~~~~~~~~~
+.. * `colab notebook <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Tool_Mashup.ipynb>`__
+
+----
+
+d) ENHANCE
+----------
+
+    Increase the resolution or quality of a texture using another as an example.
+
+
+Enhance Command-Line
+~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+    Usage:
+        texturize enhance TARGET [with] SOURCE
+
+    Examples:
+        texturize enhance samples/grass1.webp with samples/grass2.webp
+        texturize enhance samples/gravel1.png with samples/gravel2.png
+
+
+Enhance Library API
+~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    from texturize import api, commands
+
+    # The input could be any PIL Image in RGB mode.
+    target = io.load_image_from_file("input1.png")
+    source = io.load_image_from_file("input2.png")
+
+    # Only process one octave to retain photo-realistic output.
+    enhance = commands.Enhance(target, source, zoom=2)
+    for result in api.process_octaves(enhance, octaves=2):
+        pass
+
+    # The output can be saved in any PIL-supported format.
+    result.image.save("output.png")
+
+
+Enhance Examples
+~~~~~~~~~~~~~~~~
+
+.. image:: docs/enhance-grass.webp
+
+.. Enhance Online Tool
+.. ~~~~~~~~~~~~~~~~~~~
+.. * `colab notebook <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Tool_Enhance.ipynb>`__
+
+----
+
 
 3. Options & Usage
 ==================
@@ -150,12 +252,17 @@ commands above::
         SOURCE                  Path to source image to use as texture.
         -s WxH, --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
         -o FILE, --output=FILE  Filename for saving the result, includes format variables.
-                                [default: {source}_gen{variation}.png]
+                                [default: {command}_{source}{variation}.png]
+
+        --weights=WEIGHTS       Comma-separated list of blend weights. [default: 1.0]
+        --zoom=ZOOM             Integer zoom factor for enhancing. [default: 2]
+
         --variations=V          Number of images to generate at same time. [default: 1]
         --seed=SEED             Configure the random number generation.
-        --mode=MODE             Either "patch" or "gram" to specify critics. [default: gram]
+        --mode=MODE             Either "patch" or "gram" to manually specify critics.
         --octaves=O             Number of octaves to process. [default: 5]
-        --threshold=T           Quality for optimization, lower is better. [default: 1e-4]
+        --threshold=T           Quality for optimization, lower is better.  Defaults to 1e-3
+                                for "patch" and 1e-7 for "gram".
         --iterations=I          Maximum number of iterations each octave. [default: 99]
         --device=DEVICE         Hardware to use, either "cpu" or "cuda".
         --precision=PRECISION   Floating-point format to use, "float16" or "float32".
@@ -167,6 +274,51 @@ commands above::
 4. Installation
 ===============
 
+Existing Python [fastest]
+-------------------------
+
+We recommend using a `Miniconda <https://docs.conda.io/en/latest/miniconda.html>`__ to
+manage your Python environments.  If you have Python 3.6+ already running, you first
+need to ensure that PyTorch is available as per the `official installation guide <https://pytorch.org/get-started/locally/>`__:
+
+.. code-block:: bash
+
+    # a) Use this if you have an *Nvidia GPU only*.
+    #   - with `conda`
+    conda install pytorch torchvision cudatoolkit=10.2 -c pytorch
+    #   - with `pip`
+    pip install torch==1.5.1+cu102 torchvision==0.6.1+cu102 -f https://download.pytorch.org/whl/torch_stable.html
+
+    # b) Fallback if you just want to run on CPU.
+    #   - with `conda`
+    conda install pytorch torchvision cpuonly -c pytorch
+    #   - with `pip`
+    pip install torch==1.5.1+cpu torchvision==0.6.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
+
+
+**NOTE**: Any version of CUDA is suitable as long as PyTorch is working.  Replace the
+string ``10.2`` or ``102`` in the script above with the version of CUDA driver you have
+installed on your machine.
+
+Then, you can fetch the latest version of the library from the Python Package Index
+(PyPI) using the following command:
+
+.. code-block:: bash
+
+    pip install texturize
+
+Finally, you can check if everything worked by calling the command-line script:
+
+.. code-block:: bash
+
+    texturize --help
+
+Use ``pip uninstall`` to remove these packages once you are done.
+
+
+Conda Environment [reliable]
+----------------------------
+
 If you're a developer and want to install the library locally, start by cloning the
 repository to your local disk:
 
@@ -175,7 +327,7 @@ repository to your local disk:
     git clone https://github.com/photogeniq/neural-texturize.git
 
 Then, you can create a new virtual environment called ``myenv`` by installing
-`Miniconda <https://docs.conda.io/en/latest/miniconda.html>`_ and calling the following
+`Miniconda <https://docs.conda.io/en/latest/miniconda.html>`__ and calling the following
 commands, depending whether you want to run on CPU or GPU (via CUDA):
 
 .. code-block:: bash
@@ -200,14 +352,14 @@ Finally, you can check if everything worked by calling the script:
 
 .. code-block:: bash
 
-    texturize
+    texturize --help
 
 You can use ``conda env remove -n myenv`` to delete the virtual environment once you
 are done.
 
 ----
 
-|Python Version| |License Type| |Project Stars|
+|Python Version| |License Type| |Project Stars| |Build Status|
 
 .. |Python Version| image:: https://img.shields.io/pypi/pyversions/texturize
     :target: https://www.python.org/
@@ -217,3 +369,9 @@ are done.
 
 .. |Project Stars| image:: https://img.shields.io/github/stars/photogeniq/neural-texturize.svg?style=flat
     :target: https://github.com/photogeniq/neural-texturize/stargazers
+
+.. |Project Status| image:: https://img.shields.io/pypi/status/texturize
+    :alt: PyPI - Status
+
+.. |Build Status| image:: https://img.shields.io/github/workflow/status/photogeniq/neural-texturize/build
+    :alt: GitHub Workflow Status
