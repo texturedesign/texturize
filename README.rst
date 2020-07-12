@@ -95,7 +95,7 @@ Remake Command-Line
 .. code-block:: bash
 
     Usage:
-        texturize remake TARGET like SOURCE
+        texturize remake TARGET [like] SOURCE
 
     Examples:
         texturize remake samples/grass1.webp like samples/grass2.webp
@@ -197,7 +197,7 @@ Enhance Command-Line
 .. code-block:: bash
 
     Usage:
-        texturize enhance SOURCE...
+        texturize enhance TARGET [with] SOURCE
 
     Examples:
         texturize enhance samples/grass1.webp with samples/grass2.webp
@@ -252,12 +252,17 @@ commands above::
         SOURCE                  Path to source image to use as texture.
         -s WxH, --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
         -o FILE, --output=FILE  Filename for saving the result, includes format variables.
-                                [default: {source}_gen{variation}.png]
+                                [default: {command}_{source}{variation}.png]
+
+        --weights=WEIGHTS       Comma-separated list of blend weights. [default: 1.0]
+        --zoom=ZOOM             Integer zoom factor for enhancing. [default: 2]
+
         --variations=V          Number of images to generate at same time. [default: 1]
         --seed=SEED             Configure the random number generation.
-        --mode=MODE             Either "patch" or "gram" to specify critics. [default: gram]
+        --mode=MODE             Either "patch" or "gram" to manually specify critics.
         --octaves=O             Number of octaves to process. [default: 5]
-        --threshold=T           Quality for optimization, lower is better. [default: 1e-4]
+        --threshold=T           Quality for optimization, lower is better.  Defaults to 1e-3
+                                for "patch" and 1e-7 for "gram".
         --iterations=I          Maximum number of iterations each octave. [default: 99]
         --device=DEVICE         Hardware to use, either "cpu" or "cuda".
         --precision=PRECISION   Floating-point format to use, "float16" or "float32".
