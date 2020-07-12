@@ -295,10 +295,10 @@ need to ensure that PyTorch is available as per the `official installation guide
     #   - with `pip`
     pip install torch==1.5.1+cpu torchvision==0.6.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
 
-.. note::
-    Any version of CUDA is suitable as long as PyTorch is working.  Replace the string
-    ``10.2`` or ``102`` in the script above with the version of CUDA driver you have
-    installed on your machine.
+
+**NOTE**: Any version of CUDA is suitable as long as PyTorch is working.  Replace the
+string ``10.2`` or ``102`` in the script above with the version of CUDA driver you have
+installed on your machine.
 
 Then, you can fetch the latest version of the library from the Python Package Index
 (PyPI) using the following command:
