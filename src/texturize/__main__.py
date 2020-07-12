@@ -30,7 +30,8 @@ Options:
     --variations=V          Number of images to generate at same time. [default: 1]
     --seed=SEED             Configure the random number generation.
     --mode=MODE             Either "patch" or "gram" to manually specify critics.
-    --octaves=O             Number of octaves to process. [default: 5]
+    --octaves=O             Number of octaves to process. Defaults to 5 for 512x512, or
+                            4 for 256x256 equivalent pixel count.
     --threshold=T           Quality for optimization, lower is better.  Defaults to 1e-3
                             for "patch" and 1e-7 for "gram".
     --iterations=I          Maximum number of iterations each octave. [default: 99]
@@ -51,7 +52,6 @@ Options:
 
 import os
 import glob
-import math
 import itertools
 
 import docopt
@@ -83,7 +83,7 @@ def validate(config):
             "variations": Use(int),
             "seed": Or(None, Use(int)),
             "mode": Or(None, "patch", "gram", "hist"),
-            "octaves": Use(int),
+            "octaves": Or(None, Use(int)),
             "threshold": Or(None, Use(float)),
             "iterations": Use(int),
             "device": Or(None, "cpu", "cuda"),
@@ -134,7 +134,7 @@ def main():
         if command == "enhance":
             zoom = config["zoom"]
             cmd = commands.Enhance(target_img, source_img, mode=mode, zoom=zoom)
-            config["octaves"] = int(math.log(zoom, 2) + 1.0)
+            config["octaves"] = cmd.octaves
             config["size"] = (target_img.size[0] * zoom, target_img.size[1] * zoom)
         if command == "remake":
             cmd = commands.Remake(

@@ -1,6 +1,7 @@
 # neural-texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
 import os
+import math
 
 import torch
 import torch.nn.functional as F
@@ -16,7 +17,7 @@ def process_iterations(
     cmd,
     log: object = None,
     size: tuple = None,
-    octaves: int = -1,
+    octaves: int = None,
     variations: int = 1,
     iterations: int = 200,
     threshold: float = 1e-5,
@@ -26,9 +27,13 @@ def process_iterations(
     """Synthesize a new texture and return a PyTorch tensor at each iteration.
     """
 
+    # Configure the default options dynamically, unless overriden.
+    threshold = threshold or {"patch": 1e-3, "gram": 1e-7, "hist": 1e-6}[cmd.mode]
+    factor = math.sqrt((size[0] * size[1]) / (32 ** 2))
+    octaves = octaves or getattr(cmd, "octaves", int(math.log(factor, 2) + 1.0))
+
     # Setup the application to use throughout the synthesis.
     app = Application(log, device, precision)
-    threshold = threshold or {"patch": 1e-3, "gram": 1e-7, "hist": 1e-6}[cmd.mode]
 
     # Encoder used by all the critics at every octave.
     encoder = models.VGG11(pretrained=True, pool_type=torch.nn.AvgPool2d)

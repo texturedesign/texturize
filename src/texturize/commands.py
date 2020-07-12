@@ -1,5 +1,7 @@
 # neural-texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
+import math
+
 import torch
 import torch.nn.functional as F
 
@@ -89,8 +91,9 @@ class Remix(Command):
 
 
 class Enhance(Command):
-    def __init__(self, target, source, mode=None):
+    def __init__(self, target, source, mode=None, zoom=1):
         self.mode = mode or "gram"
+        self.octaves = int(math.log(zoom, 2) + 1.0)
         self.critics = list(create_default_critics(self.mode).values())
         self.source = load_tensor_from_image(source, device="cpu")
         self.target = load_tensor_from_image(target, device="cpu")
