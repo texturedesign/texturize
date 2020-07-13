@@ -104,11 +104,11 @@ class HistogramCritic:
 
 
 class PatchCritic:
-    def __init__(self, layer):
+    def __init__(self, layer, variety=0.2):
         self.layer = layer
         self.patches = None
         self.builder = PatchBuilder(patch_size=2)
-        self.matcher = FeatureMatcher(device="cpu")
+        self.matcher = FeatureMatcher(device="cpu", variety=variety)
         self.split_hints = {}
 
     def get_layers(self):
@@ -144,6 +144,10 @@ class PatchCritic:
         self.matcher.update_target(target)
 
         with torch.no_grad():
+            if self.iteration == 1:
+                self.auto_split(self.matcher.compare_features_identity)
+                self.matcher.update_biases()
+
             if self.iteration == 1 or target.flatten(1).shape[1] < 1_048_576:
                 self.auto_split(self.matcher.compare_features_matrix)
             else:
@@ -157,6 +161,7 @@ class PatchCritic:
                     radius=[4, 2, 1][self.iteration % 3],
                 )
 
+            self.matcher.update_biases()
             matched_target = self.matcher.reconstruct_target()
 
         yield 0.5 * F.mse_loss(target, matched_target)

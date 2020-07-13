@@ -304,6 +304,74 @@ def test_scores_improve(content, style):
     assert after >= before
 
 
+@given(array=Tensor(range=(9, 9), channels=5))
+def test_scores_source_bias_matrix(array):
+    matcher = FeatureMatcher(array, torch.cat([array, array], dim=2))
+
+    matcher.repro_target.biases[:, :, 9:] = 1.0
+    matcher.repro_target.scores.zero_()
+    matcher.compare_features_matrix(split=2)
+    assert (matcher.repro_target.indices[:,0] >= 9).all()
+
+    matcher.repro_target.biases[:, :, 9:] = 0.0
+    matcher.repro_target.biases[:, :, :9] = 1.0
+    matcher.repro_target.scores.zero_()
+    matcher.compare_features_matrix(split=2)
+    assert (matcher.repro_target.indices[:,0] < 9).all()
+
+
+@given(array=Tensor(range=(11, 11), channels=4))
+def test_scores_target_bias_matrix(array):
+    matcher = FeatureMatcher(torch.cat([array, array], dim=2), array)
+
+    matcher.repro_sources.biases[:, :, 11:] = 1.0
+    matcher.repro_sources.scores.zero_()
+    matcher.compare_features_matrix(split=2)
+    assert (matcher.repro_sources.indices[:,0] >= 11).all()
+
+    matcher.repro_sources.biases[:, :, 11:] = 0.0
+    matcher.repro_sources.biases[:, :, :11] = 1.0
+    matcher.repro_sources.scores.zero_()
+    matcher.compare_features_matrix(split=2)
+    assert (matcher.repro_sources.indices[:,0] < 11).all()
+
+
+@given(array=Tensor(range=(8, 8), channels=5))
+def test_scores_source_bias_random(array):
+    matcher = FeatureMatcher(array, torch.cat([array, array], dim=2))
+
+    matcher.repro_target.biases[:, :, 8:] = 1.0
+    matcher.repro_target.scores.fill_(-1.0)
+    for _ in range(10):
+        matcher.compare_features_random(split=2)
+    assert (matcher.repro_target.indices[:,0] >= 8).all()
+
+    matcher.repro_target.biases[:, :, 8:] = 0.0
+    matcher.repro_target.biases[:, :, :8] = 1.0
+    matcher.repro_target.scores.fill_(-1.0)
+    for _ in range(10):
+        matcher.compare_features_random(split=2)
+    assert (matcher.repro_target.indices[:,0] < 8).all()
+
+
+@given(array=Tensor(range=(12, 12), channels=3))
+def test_scores_target_bias_random(array):
+    matcher = FeatureMatcher(torch.cat([array, array], dim=2), array)
+
+    matcher.repro_sources.biases[:, :, 12:] = 1.0
+    matcher.repro_sources.scores.fill_(-1.0)
+    for _ in range(10):
+        matcher.compare_features_random(split=2)
+    assert (matcher.repro_sources.indices[:,0] >= 12).all()
+
+    matcher.repro_sources.biases[:, :, 12:] = 0.0
+    matcher.repro_sources.biases[:, :, :12] = 1.0
+    matcher.repro_sources.scores.fill_(-1.0)
+    for _ in range(10):
+        matcher.compare_features_random(split=2)
+    assert (matcher.repro_sources.indices[:,0] < 12).all()
+
+
 @given(array=Tensor(range=(3, 8), channels=5))
 def test_propagate_down_right(array):
     """Propagating the identity transformation expects indices to propagate
@@ -383,7 +451,7 @@ def test_scatter_2d_single_long(array):
 def test_improve_window():
     u, v = 4, 5
 
-    mapping = Mapping((1, -1, u, u), "cpu")
+    mapping = Mapping((1, -1, u, u), "cpu").from_linear((1, 1, 7+v, 7+v))
     similarity = torch.empty(size=(1, u * u, v * v), dtype=torch.float32).uniform_()
 
     mapping.improve_window((0, u, 0, u), (7, v, 7, v), similarity.max(dim=2))

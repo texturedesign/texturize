@@ -77,6 +77,7 @@ class Mapping:
         self.device = torch.device(device)
         self.indices = torch.empty((b, 2, h, w), dtype=torch.int64, device=device)
         self.scores = torch.full((b, 1, h, w), float("-inf"), device=device)
+        self.biases = None
         self.target_size = None
 
     def clone(self):
@@ -84,15 +85,24 @@ class Mapping:
         clone = Mapping((b, -1, h, w), self.device)
         clone.indices[:] = self.indices
         clone.scores[:] = self.scores
+        clone.biases = self.biases.copy()
         return clone
+    
+    def setup_biases(self, target_size):
+        b, _, h, w = target_size
+        self.biases = torch.full((b, 1, h, w), 0.0, device=self.device)
 
     def rescale(self, target_size):
-        factor = torch.tensor(target_size, dtype=torch.float) / torch.tensor(self.target_size[2:], dtype=torch.float)
+        factor = torch.tensor(target_size, dtype=torch.float) / torch.tensor(
+            self.target_size[2:], dtype=torch.float
+        )
         self.indices = (
             self.indices.float().mul(factor.to(self.device).view(1, 2, 1, 1)).long()
         )
-        self.indices[:,0].clamp_(0, target_size[0] - 1)
-        self.indices[:,1].clamp_(0, target_size[1] - 1)
+        self.indices[:, 0].clamp_(0, target_size[0] - 1)
+        self.indices[:, 1].clamp_(0, target_size[1] - 1)
+
+        self.setup_biases(self.scores.shape[:2] + target_size)
 
     def resize(self, size):
         self.indices = F.interpolate(
@@ -102,7 +112,9 @@ class Mapping:
 
     def improve(self, candidate_scores, candidate_indices):
         candidate_indices = candidate_indices.view(self.indices.shape)
-        candidate_scores = candidate_scores.view(self.scores.shape)
+        candidate_scores = candidate_scores.view(self.scores.shape) + torch_gather_2d(
+            self.biases, candidate_indices
+        )
 
         cond = candidate_scores > self.scores
         self.indices[:] = torch.where(cond, candidate_indices, self.indices)
@@ -153,7 +165,10 @@ class Mapping:
         grid = torch.empty((1, 2, dy, dx), dtype=torch.int64, device=self.device)
         self.meshgrid(grid, offset=(sy, sx), range=(dy, dx))
 
-        this_scores = torch_gather_2d(self.scores, this_indices.view(1, 2, dy, dx))
+        this_scores = (
+            torch_gather_2d(self.scores, this_indices.view(1, 2, dy, dx))
+            + self.biases[:, :, sy:sy+dy, sx:sx+dx]
+        )
         cond = scores.flatten(2) > this_scores.flatten(2)
 
         better_indices = this_indices.flatten(2)[cond.expand(1, 2, -1)].view(1, 2, -1)
@@ -172,6 +187,7 @@ class Mapping:
         assert target_size[0] == 1, "Only 1 feature map supported."
         self.target_size = target_size
         self.randgrid(self.indices, offset=(0, 0), range=target_size[2:])
+        self.setup_biases(target_size)
         return self
 
     def randgrid(self, output, offset, range):
@@ -211,6 +227,7 @@ class Mapping:
         assert target_size[0] == 1, "Only 1 feature map supported."
         self.target_size = target_size
         self.meshgrid(self.indices, offset=(0, 0), range=target_size[2:])
+        self.setup_biases(target_size)
         return self
 
 
@@ -219,8 +236,9 @@ class FeatureMatcher:
     normalized cross-correlation of features as similarity metric.
     """
 
-    def __init__(self, target=None, sources=None, device="cpu"):
+    def __init__(self, target=None, sources=None, device="cpu", variety=0.0):
         self.device = torch.device(device)
+        self.variety = variety
 
         self.target = None
         self.sources = None
@@ -272,6 +290,26 @@ class FeatureMatcher:
             self.repro_target.rescale(sources.shape[2:])
             self.repro_sources.resize(sources.shape[2:])
 
+    def update_biases(self):
+        sources_value = (
+            self.repro_sources.scores
+            - torch_gather_2d(self.repro_sources.biases, self.repro_sources.indices)
+            - self.repro_target.biases
+        )
+        target_value = (
+            self.repro_target.scores
+            - torch_gather_2d(self.repro_target.biases, self.repro_target.indices)
+            - self.repro_sources.biases
+        )
+
+        k = self.variety
+        self.repro_target.biases[:] = -k * (sources_value - sources_value.mean())
+        self.repro_sources.biases[:] = -k * (target_value - target_value.mean())
+
+        # print('BIASES', self.repro_target.biases.mean().item(), self.repro_sources.biases.mean().item(),
+        #       'SCORES', self.repro_target.scores.mean().item(), self.repro_sources.scores.mean().item())
+
+
     def reconstruct_target(self):
         return torch_gather_2d(
             self.sources, self.repro_target.indices.to(self.sources.device)
@@ -295,6 +333,8 @@ class FeatureMatcher:
             source_window = self.sources[:, :, s1:s2].flatten(2)
 
             similarity = cosine_similarity_matrix_1d(target_window, source_window)
+            similarity += self.repro_target.biases[:, :, s1:s2].to(similarity.device).reshape(1, 1, -1)
+            similarity += self.repro_sources.biases[:, :, t1:t2].to(similarity.device).reshape(1, -1, 1)
 
             best_source = torch.max(similarity, dim=2)
             self.repro_target.improve_window(
@@ -420,8 +460,10 @@ class FeatureMatcher:
         b = torch_gather_2d(b_full, b_indices.to(b_full.device))
 
         similarity = cosine_similarity_vector_1d(a.flatten(2), b.flatten(2))
-        best_candidates = similarity.max(dim=0)
+        similarity += torch_gather_2d(repro_a.biases, b_indices).to(similarity.device).view(similarity.shape[0], -1)
+        similarity += repro_b.biases[:, :, y:y+dy, x:x+dx].to(similarity.device).view(1, -1)
 
+        best_candidates = similarity.max(dim=0)
         candidates = torch.gather(
             b_indices.flatten(2),
             dim=0,
@@ -429,8 +471,8 @@ class FeatureMatcher:
             .view(1, 1, -1)
             .expand(1, 2, -1),
         )
-        similarity = best_candidates.values.view(1, 1, -1).to(self.device)
 
-        cha = repro_a._improve_window(window_a, similarity, candidates.flatten(2))
-        chb = repro_b._improve_scatter(candidates.flatten(2), similarity, window_a)
+        scores = best_candidates.values.view(1, 1, -1).to(self.device)
+        cha = repro_a._improve_window(window_a, scores, candidates.flatten(2))
+        chb = repro_b._improve_scatter(candidates.flatten(2), scores, window_a)
         return cha + chb
