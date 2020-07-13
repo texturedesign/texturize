@@ -104,6 +104,9 @@ class HistogramCritic:
 
 
 class PatchCritic:
+
+    LAST = None
+
     def __init__(self, layer, variety=0.2):
         self.layer = layer
         self.patches = None
@@ -160,7 +163,11 @@ class PatchCritic:
                     self.matcher.compare_features_nearby,
                     radius=[4, 2, 1][self.iteration % 3],
                 )
+                self.auto_split(
+                    self.matcher.compare_features_coarse, parent=PatchCritic.LAST
+                )
 
+            PatchCritic.LAST = self.matcher
             self.matcher.update_biases()
             matched_target = self.matcher.reconstruct_target()
 

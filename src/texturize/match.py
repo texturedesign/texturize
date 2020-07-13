@@ -87,7 +87,7 @@ class Mapping:
         clone.scores[:] = self.scores
         clone.biases = self.biases.copy()
         return clone
-    
+
     def setup_biases(self, target_size):
         b, _, h, w = target_size
         self.biases = torch.full((b, 1, h, w), 0.0, device=self.device)
@@ -167,7 +167,7 @@ class Mapping:
 
         this_scores = (
             torch_gather_2d(self.scores, this_indices.view(1, 2, dy, dx))
-            + self.biases[:, :, sy:sy+dy, sx:sx+dx]
+            + self.biases[:, :, sy : sy + dy, sx : sx + dx]
         )
         cond = scores.flatten(2) > this_scores.flatten(2)
 
@@ -306,10 +306,6 @@ class FeatureMatcher:
         self.repro_target.biases[:] = -k * (sources_value - sources_value.mean())
         self.repro_sources.biases[:] = -k * (target_value - target_value.mean())
 
-        # print('BIASES', self.repro_target.biases.mean().item(), self.repro_sources.biases.mean().item(),
-        #       'SCORES', self.repro_target.scores.mean().item(), self.repro_sources.scores.mean().item())
-
-
     def reconstruct_target(self):
         return torch_gather_2d(
             self.sources, self.repro_target.indices.to(self.sources.device)
@@ -319,6 +315,48 @@ class FeatureMatcher:
         return torch_gather_2d(
             self.target, self.repro_sources.indices.to(self.sources.device)
         )
+
+    def compare_features_coarse(self, parent, radius=2, split=1):
+        def _compare(a, b, repro_a, repro_b, parent_a):
+            if parent_a.indices.shape[2] > repro_a.indices.shape[2]:
+                return 0
+
+            total = 0
+            for (t1, t2) in iterate_range(a.shape[2], split):
+                assert t2 >= t1
+
+                indices = F.interpolate(
+                    parent_a.indices.float() * 2.0,
+                    size=repro_a.indices.shape[2:],
+                    mode="nearest",
+                ).long() + torch.empty_like(repro_a.indices).random_(-radius, radius + 1)
+
+                indices[:, 0, :, :].clamp_(min=0, max=b.shape[2] - 1)
+                indices[:, 1, :, :].clamp_(min=0, max=b.shape[3] - 1)
+
+                total += self._improve(
+                    a, (t1, t2 - t1, 0, a.shape[3]), repro_a, b, indices, repro_b,
+                )
+            return total
+
+        if parent is None:
+            return 0
+
+        ts = _compare(
+            self.target,
+            self.sources,
+            self.repro_target,
+            self.repro_sources,
+            parent.repro_target,
+        )
+        st = _compare(
+            self.sources,
+            self.target,
+            self.repro_sources,
+            self.repro_target,
+            parent.repro_sources,
+        )
+        return ts + st
 
     def compare_features_matrix(self, split=1):
         assert self.sources.shape[0] == 1, "Only 1 source supported."
@@ -333,8 +371,16 @@ class FeatureMatcher:
             source_window = self.sources[:, :, s1:s2].flatten(2)
 
             similarity = cosine_similarity_matrix_1d(target_window, source_window)
-            similarity += self.repro_target.biases[:, :, s1:s2].to(similarity.device).reshape(1, 1, -1)
-            similarity += self.repro_sources.biases[:, :, t1:t2].to(similarity.device).reshape(1, -1, 1)
+            similarity += (
+                self.repro_target.biases[:, :, s1:s2]
+                .to(similarity.device)
+                .reshape(1, 1, -1)
+            )
+            similarity += (
+                self.repro_sources.biases[:, :, t1:t2]
+                .to(similarity.device)
+                .reshape(1, -1, 1)
+            )
 
             best_source = torch.max(similarity, dim=2)
             self.repro_target.improve_window(
@@ -460,8 +506,16 @@ class FeatureMatcher:
         b = torch_gather_2d(b_full, b_indices.to(b_full.device))
 
         similarity = cosine_similarity_vector_1d(a.flatten(2), b.flatten(2))
-        similarity += torch_gather_2d(repro_a.biases, b_indices).to(similarity.device).view(similarity.shape[0], -1)
-        similarity += repro_b.biases[:, :, y:y+dy, x:x+dx].to(similarity.device).view(1, -1)
+        similarity += (
+            torch_gather_2d(repro_a.biases, b_indices)
+            .to(similarity.device)
+            .view(similarity.shape[0], -1)
+        )
+        similarity += (
+            repro_b.biases[:, :, y : y + dy, x : x + dx]
+            .to(similarity.device)
+            .view(1, -1)
+        )
 
         best_candidates = similarity.max(dim=0)
         candidates = torch.gather(
