@@ -306,10 +306,6 @@ class FeatureMatcher:
         self.repro_target.biases[:] = -k * (sources_value - sources_value.mean())
         self.repro_sources.biases[:] = -k * (target_value - target_value.mean())
 
-        # print('BIASES', self.repro_target.biases.mean().item(), self.repro_sources.biases.mean().item(),
-        #       'SCORES', self.repro_target.scores.mean().item(), self.repro_sources.scores.mean().item())
-
-
     def reconstruct_target(self):
         return torch_gather_2d(
             self.sources, self.repro_target.indices.to(self.sources.device)
