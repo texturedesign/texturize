@@ -101,6 +101,7 @@ class Mapping:
         )
         self.indices[:, 0].clamp_(0, target_size[0] - 1)
         self.indices[:, 1].clamp_(0, target_size[1] - 1)
+        self.target_size = self.target_size[:2] + target_size
 
         self.setup_biases(self.scores.shape[:2] + target_size)
 
@@ -306,6 +307,9 @@ class FeatureMatcher:
         self.repro_target.biases[:] = -k * (sources_value - sources_value.mean())
         self.repro_sources.biases[:] = -k * (target_value - target_value.mean())
 
+        self.repro_target.scores.fill_(float("-inf"))
+        self.repro_sources.scores.fill_(float("-inf"))
+
     def reconstruct_target(self):
         return torch_gather_2d(
             self.sources, self.repro_target.indices.to(self.sources.device)
@@ -329,7 +333,8 @@ class FeatureMatcher:
                     parent_a.indices.float() * 2.0,
                     size=repro_a.indices.shape[2:],
                     mode="nearest",
-                ).long() + torch.empty_like(repro_a.indices).random_(-radius, radius + 1)
+                ).long()
+                indices += torch.empty_like(indices).random_(-radius, radius + 1)
 
                 indices[:, 0, :, :].clamp_(min=0, max=b.shape[2] - 1)
                 indices[:, 1, :, :].clamp_(min=0, max=b.shape[3] - 1)
@@ -437,12 +442,28 @@ class FeatureMatcher:
                 assert t2 >= t1
 
                 indices = repro_a.indices[:, :, t1:t2]
-                self._improve(
+                self._update(
                     a, (t1, t2 - t1, 0, a.shape[3]), repro_a, b, indices, repro_b,
                 )
 
         _compare(self.target, self.sources, self.repro_target, self.repro_sources)
         _compare(self.sources, self.target, self.repro_sources, self.repro_target)
+
+    def compare_features_inverse(self, split=1):
+        def _compare(a, b, repro_a, repro_b, twice=False):
+            total = 0
+            for (t1, t2) in iterate_range(a.shape[2], split):
+                assert t2 >= t1
+
+                indices = repro_a.indices[:, :, t1:t2]
+                total += self._improve(
+                    a, (t1, t2 - t1, 0, a.shape[3]), repro_a, b, indices, repro_b,
+                )
+            return total
+
+        ts = _compare(self.target, self.sources, self.repro_target, self.repro_sources)
+        st = _compare(self.sources, self.target, self.repro_sources, self.repro_target)
+        return ts + st
 
     def compare_features_nearby(self, radius, split=1):
         """Generate nearby coordinates for each pixel to see if offseting the neighboring
@@ -500,7 +521,9 @@ class FeatureMatcher:
         st = _compare(self.sources, self.target, self.repro_sources, self.repro_target)
         return ts + st
 
-    def _improve(self, a_full, window_a, repro_a, b_full, b_indices, repro_b):
+    def _compute_similarity(
+        self, a_full, window_a, repro_a, b_full, b_indices, repro_b
+    ):
         y, dy, x, dx = window_a
         a = a_full[:, :, y : y + dy, x : x + dx]
         b = torch_gather_2d(b_full, b_indices.to(b_full.device))
@@ -515,6 +538,20 @@ class FeatureMatcher:
             repro_b.biases[:, :, y : y + dy, x : x + dx]
             .to(similarity.device)
             .view(1, -1)
+        )
+        return similarity
+
+    def _update(self, a_full, window_a, repro_a, b_full, b_indices, repro_b):
+        y, dy, x, dx = window_a
+        similarity = self._compute_similarity(
+            a_full, window_a, repro_a, b_full, b_indices, repro_b
+        )
+        assert similarity.shape[0] == 1
+        repro_a.scores[:, :, y : y + dy, x : x + dx] = similarity.view(1, 1, dy, dx)
+
+    def _improve(self, a_full, window_a, repro_a, b_full, b_indices, repro_b):
+        similarity = self._compute_similarity(
+            a_full, window_a, repro_a, b_full, b_indices, repro_b
         )
 
         best_candidates = similarity.max(dim=0)

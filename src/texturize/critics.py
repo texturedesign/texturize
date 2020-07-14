@@ -134,11 +134,13 @@ class PatchCritic:
         for i in self.split_hints.get(key, range(16)):
             try:
                 result = function(*arguments, split=2 ** i, **keywords)
-                self.split_hints[key] = [i]
+                self.split_hints[key] = list(range(i, 16))
                 return result
             except RuntimeError as e:
                 if "CUDA out of memory." not in str(e):
                     raise
+
+        assert False, f"Unable to fit {function} execution into CUDA memory."
 
     def evaluate(self, features):
         self.iteration += 1
@@ -151,13 +153,14 @@ class PatchCritic:
                 self.auto_split(self.matcher.compare_features_identity)
                 self.matcher.update_biases()
 
-            if self.iteration == 1 or target.flatten(1).shape[1] < 1_048_576:
+            if self.iteration == 12 or target.flatten(1).shape[1] < 1_048_576:
                 self.auto_split(self.matcher.compare_features_matrix)
             else:
                 self.auto_split(self.matcher.compare_features_identity)
+                self.auto_split(self.matcher.compare_features_inverse)
                 self.auto_split(
                     self.matcher.compare_features_random,
-                    radius=[16, 8, 4][min(2, self.iteration // 33)],
+                    radius=[16, 8, 4, -1][self.iteration % 4],
                 )
                 self.auto_split(
                     self.matcher.compare_features_nearby,

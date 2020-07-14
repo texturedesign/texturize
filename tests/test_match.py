@@ -417,6 +417,56 @@ def test_propagate_up_left(array):
     ).all()
 
 
+@given(content=Tensor(range=(6, 8), channels=4), style=Tensor(range=(7, 9), channels=4))
+def test_compare_inverse_asymmetrical(content, style):
+    """Check that doing the identity comparison also projects the inverse
+    coordinates into the other buffer.
+    """
+
+    # Set corner pixel as identical, so it matches 100%.
+    content[:, :, -1, -1] = style[:, :, -1, -1]
+
+    matcher = FeatureMatcher(content, style)
+    matcher.repro_target.from_linear(style.shape)
+    matcher.repro_sources.indices.zero_()
+    matcher.compare_features_identity()
+    matcher.compare_features_inverse(split=2)
+
+    assert matcher.repro_sources.indices.max() > 0
+
+    matcher.repro_sources.from_linear(content.shape)
+    matcher.repro_target.indices.zero_()
+    matcher.repro_target.scores.zero_()
+    matcher.compare_features_identity()
+    matcher.compare_features_inverse(split=2)
+
+    assert matcher.repro_target.indices.max() > 0
+
+
+@given(array=Tensor(range=(3, 3), channels=3))
+def test_compare_inverse_symmetrical(array):
+    """Check that doing the identity comparison also projects the inverse
+    coordinates into the other buffer.
+    """
+    matcher = FeatureMatcher(array, array)
+    matcher.repro_target.from_linear(array.shape)
+    matcher.repro_sources.indices.zero_()
+    matcher.compare_features_identity()
+    matcher.compare_features_inverse(split=1)
+
+    assert (matcher.repro_target.indices != matcher.repro_sources.indices).sum() == 0
+
+    matcher.repro_target.indices.zero_()
+    matcher.repro_target.scores.fill_(float("-inf"))
+    matcher.compare_features_identity()
+    matcher.compare_features_inverse(split=1)
+
+    assert (matcher.repro_target.indices != matcher.repro_sources.indices).sum() == 0
+
+
+# ================================================================================
+
+
 @given(array=Tensor(range=(3, 5), channels=3))
 def test_scatter_2d_single_float(array):
     matcher = FeatureMatcher(array, array)
@@ -470,8 +520,6 @@ def test_improve_window():
 
 
 # ================================================================================
-
-
 
 from texturize.match import cosine_similarity_matrix_1d
 
