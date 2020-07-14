@@ -333,7 +333,7 @@ class FeatureMatcher:
                     parent_a.indices.float() * 2.0,
                     size=repro_a.indices.shape[2:],
                     mode="nearest",
-                ).long()
+                )[:, :, t1:t2].long()
                 indices += torch.empty_like(indices).random_(-radius, radius + 1)
 
                 indices[:, 0, :, :].clamp_(min=0, max=b.shape[2] - 1)
