@@ -417,7 +417,7 @@ def test_propagate_up_left(array):
     ).all()
 
 
-@given(content=Tensor(range=(4, 6), channels=4), style=Tensor(range=(3, 5), channels=4))
+@given(content=Tensor(range=(6, 8), channels=4), style=Tensor(range=(7, 9), channels=4))
 def test_compare_inverse_asymmetrical(content, style):
     """Check that doing the identity comparison also projects the inverse
     coordinates into the other buffer.
@@ -426,7 +426,7 @@ def test_compare_inverse_asymmetrical(content, style):
     matcher.repro_target.from_linear(style.shape)
     matcher.repro_sources.indices.zero_()
     matcher.compare_features_identity()
-    matcher.compare_features_inverse(split=1)
+    matcher.compare_features_inverse(split=2)
 
     assert matcher.repro_sources.indices.max() > 0
 
@@ -434,7 +434,7 @@ def test_compare_inverse_asymmetrical(content, style):
     matcher.repro_target.indices.zero_()
     matcher.repro_target.scores.zero_()
     matcher.compare_features_identity()
-    matcher.compare_features_inverse(split=1)
+    matcher.compare_features_inverse(split=2)
 
     assert matcher.repro_target.indices.max() > 0
 
