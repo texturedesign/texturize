@@ -1,6 +1,7 @@
 # neural-texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
 import os
+import math
 import itertools
 import collections
 
@@ -17,11 +18,10 @@ __all__ = ["Application", "Result", "TextureSynthesizer"]
 
 
 class TextureSynthesizer:
-    def __init__(self, device, encoder, lr, threshold, max_iter):
+    def __init__(self, device, encoder, lr, quality):
         self.device = device
         self.encoder = encoder
-        self.threshold = threshold
-        self.max_iter = max_iter
+        self.quality = quality
         self.learning_rate = lr
 
     def run(self, log, seed_img, critics):
@@ -33,15 +33,16 @@ class TextureSynthesizer:
         obj = MultiCriticObjective(self.encoder, critics)
         opt = SolverLBFGS(obj, image, lr=self.learning_rate)
 
-        progress = log.create_progress_bar(self.max_iter)
+        progress = log.create_progress_bar(100)
 
         try:
-            for i, loss, lr, retries in self._iterate(opt):
+            for i, loss, converge, lr, retries in self._iterate(opt):
                 # Constrain the image to the valid color range.
                 image.data.clamp_(0.0, 1.0)
 
                 # Update the progress bar with the result!
-                progress.update(i, loss=loss)
+                p = min(max(converge * 100.0, 0.0), 100.0)
+                progress.update(p, loss=loss, iter=i)
 
                 # Return back to the user...
                 yield loss, image, lr, retries
@@ -51,19 +52,24 @@ class TextureSynthesizer:
             progress.finish()
 
     def _iterate(self, opt):
+        threshold = math.pow(0.1, 1 + math.log(1 + self.quality))
+        converge = 0.0
         previous, plateau = float("+inf"), 0
-        for i in range(self.max_iter):
+
+        for i in itertools.count():
             # Perform one step of the optimization.
             loss, scores, progress = opt.step()
 
-            if not progress:
-                continue
+            # Progress metric loosely based on convergence and time.
+            current = (previous - loss) / loss
+            c = math.exp(-max(current - threshold, 0.0) / (math.log(1+i) * 0.05))
+            converge = converge * 0.8 + 0.2 * c
 
             # Return this iteration to the caller...
-            yield i, loss, opt.lr, opt.retries
+            yield i, loss, converge, opt.lr, opt.retries
 
             # See if we can terminate the optimization early.
-            if i > 10 and abs(loss - previous) <= self.threshold:
+            if i > 10 and current <= threshold:
                 plateau += 1
                 if plateau > 2:
                     break
@@ -89,13 +95,9 @@ class Application:
         # The floating point format is 32-bit by default, 16-bit supported.
         self.precision = getattr(torch, precision or "float32")
 
-    def process_octave(
-        self, result_img, encoder, critics, octave, scale, threshold, iterations
-    ):
+    def process_octave(self, result_img, encoder, critics, octave, scale, quality):
         # Each octave we start a new optimization process.
-        synth = TextureSynthesizer(
-            self.device, encoder, lr=1.0, threshold=threshold, max_iter=iterations,
-        )
+        synth = TextureSynthesizer(self.device, encoder, lr=1.0, quality=quality)
         result_img = result_img.to(dtype=self.precision)
 
         # Now we can enable the automatic gradient computation to run the optimization.

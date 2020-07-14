@@ -14,7 +14,7 @@ Usage:
 
 Examples:
     texturize remix samples/grass.webp --size=1440x960 --output=result.png
-    texturize remix samples/gravel.png --iterations=200 --precision=1e-5
+    texturize remix samples/gravel.png --quality=1
     texturize remix samples/sand.tiff  --output=tmp/{source}-{octave}.webp
     texturize remix samples/brick.jpg  --device=cpu
 
@@ -32,9 +32,7 @@ Options:
     --mode=MODE             Either "patch" or "gram" to manually specify critics.
     --octaves=O             Number of octaves to process. Defaults to 5 for 512x512, or
                             4 for 256x256 equivalent pixel count.
-    --threshold=T           Quality for optimization, lower is better.  Defaults to 1e-3
-                            for "patch" and 1e-7 for "gram".
-    --iterations=I          Maximum number of iterations each octave. [default: 99]
+    --quality=Q             Quality for optimization, higher is better. [default: 5]
     --device=DEVICE         Hardware to use, either "cpu" or "cuda".
     --precision=PRECISION   Floating-point format to use, "float16" or "float32".
     --quiet                 Suppress any messages going to stdout.
@@ -84,8 +82,7 @@ def validate(config):
             "seed": Or(None, Use(int)),
             "mode": Or(None, "patch", "gram", "hist"),
             "octaves": Or(None, Use(int)),
-            "threshold": Or(None, Use(float)),
-            "iterations": Use(int),
+            "quality": Use(float),
             "device": Or(None, "cpu", "cuda"),
             "precision": Or(None, "float16", "float32"),
             "help": Use(bool),

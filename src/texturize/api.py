@@ -19,8 +19,7 @@ def process_iterations(
     size: tuple = None,
     octaves: int = None,
     variations: int = 1,
-    iterations: int = 200,
-    threshold: float = 1e-5,
+    quality: float = 2,
     device: str = None,
     precision: str = None,
 ):
@@ -28,7 +27,6 @@ def process_iterations(
     """
 
     # Configure the default options dynamically, unless overriden.
-    threshold = threshold or {"patch": 1e-3, "gram": 1e-7, "hist": 1e-6}[cmd.mode]
     factor = math.sqrt((size[0] * size[1]) / (32 ** 2))
     octaves = octaves or getattr(cmd, "octaves", int(math.log(factor, 2) + 1.0))
 
@@ -53,13 +51,7 @@ def process_iterations(
         app.log.debug("<- seed:", tuple(seed.shape[2:]), "\n")
 
         for result in app.process_octave(
-            seed,
-            app.encoder,
-            critics,
-            octave,
-            scale,
-            threshold=threshold,
-            iterations=iterations,
+            seed, app.encoder, critics, octave, scale, quality=quality,
         ):
             yield result
 
@@ -91,7 +83,7 @@ def process_single_command(cmd, log: object, output: str = None, **config: dict)
             filename = output.format(
                 octave=result.octave,
                 variation=f"_{i}" if len(images) > 1 else "",
-                command=cmd.__class__.__name__.lower()
+                command=cmd.__class__.__name__.lower(),
             )
             image.resize(size=config["size"], resample=0).save(
                 filename, lossless=True, compress=6
