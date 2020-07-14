@@ -128,7 +128,7 @@ def show_result_in_notebook(throttle=None, title=None):
                     break
 
                 buffer = io.BytesIO()
-                if out.size[0] * out.size[1] < 192 * 192:
+                if throttle == float("+inf") or out.size[0] * out.size[1] < 192 * 192:
                     out.save(buffer, format="webp", method=6, lossless=True)
                 else:
                     out.save(buffer, format="webp", quality=90 if last else 50)
