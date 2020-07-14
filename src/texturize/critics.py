@@ -153,7 +153,7 @@ class PatchCritic:
                 self.auto_split(self.matcher.compare_features_identity)
                 self.matcher.update_biases()
 
-            if self.iteration == 12 or target.flatten(1).shape[1] < 1_048_576:
+            if target.flatten(1).shape[1] < 1_048_576:
                 self.auto_split(self.matcher.compare_features_matrix)
             else:
                 self.auto_split(self.matcher.compare_features_identity)
