@@ -40,13 +40,15 @@ class ConsoleLog:
 
     def create_progress_bar(self, iterations):
         widgets = [
-            progressbar.SimpleProgress(),
+            progressbar.Variable("iter", format="{name}: {value}"),
             " | ",
             progressbar.Variable("loss", format="{name}: {value:0.3e}"),
             " ",
             progressbar.Bar(marker="■", fill="·"),
             " ",
-            progressbar.ETA(),
+            progressbar.Percentage(),
+            " | ",
+            progressbar.Timer(format='elapsed: %(elapsed)s'),
         ]
         ProgressBar = progressbar.NullBar if self.quiet else progressbar.ProgressBar
         return ProgressBar(

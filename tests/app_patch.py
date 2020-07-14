@@ -9,7 +9,7 @@ from texturize.api import process_octaves
 
 def test_patch_single(image, size=(64, 48)):
     remix = Remix(image(size), mode="patch")
-    for r in process_octaves(remix, octaves=2, size=size, threshold=1e-3):
+    for r in process_octaves(remix, octaves=2, size=size):
         assert len(r.images) == 1
         assert isinstance(r.images, torch.Tensor)
         assert r.images.shape[2:] == (size[1] // r.scale, size[0] // r.scale)
