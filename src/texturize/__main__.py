@@ -103,11 +103,12 @@ def main():
     all_commands = [cmd.lower() for cmd in commands.__all__]
     command = [cmd for cmd in all_commands if config[cmd]][0]
 
-    # Ensure the user-specified values are correct.
+    # Ensure the user-specified values are correct, separate command-specific arguments.
     config = validate(config)
     sources, target, output, seed, mode = [
         config.pop(k) for k in ("SOURCE", "TARGET", "output", "seed", "mode")
     ]
+    weights, zoom = [config.pop(k) for k in ("weights", "zoom")]
 
     # Setup the output logging and display the logo!
     log = ConsoleLog(config.pop("quiet"), config.pop("verbose"))
@@ -132,22 +133,15 @@ def main():
         if command == "remix":
             cmd = commands.Remix(source_img, mode=mode)
         if command == "enhance":
-            zoom = config["zoom"]
             cmd = commands.Enhance(target_img, source_img, mode=mode, zoom=zoom)
             config["octaves"] = cmd.octaves
             config["size"] = (target_img.size[0] * zoom, target_img.size[1] * zoom)
         if command == "remake":
-            cmd = commands.Remake(
-                target_img, source_img, mode=mode, weights=config["weights"]
-            )
+            cmd = commands.Remake(target_img, source_img, mode=mode, weights=weights)
             config["octaves"] = 1
             config["size"] = target_img.size
         if command == "mashup":
             cmd = commands.Mashup([source_img, target_img], mode=mode)
-
-        # Remove command-specific parameters.
-        del config["weights"]
-        del config["zoom"]
 
         # Process the files one by one, each may have multiple variations.
         try:
