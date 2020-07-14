@@ -422,6 +422,10 @@ def test_compare_inverse_asymmetrical(content, style):
     """Check that doing the identity comparison also projects the inverse
     coordinates into the other buffer.
     """
+
+    # Set corner pixel as identical, so it matches 100%.
+    content[:, :, -1, -1] = style[:, :, -1, -1]
+
     matcher = FeatureMatcher(content, style)
     matcher.repro_target.from_linear(style.shape)
     matcher.repro_sources.indices.zero_()
