@@ -1,0 +1,47 @@
+# Python Release
+#
+# Automatically build and publish the package from the supported Python 3.x version.
+#
+
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'v*.*'
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python: [3.6]
+    name: Python ${{ matrix.python }} ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Get Tag
+        id: tag
+        run: |
+          echo ::set-output name=version::${GITHUB_REF#refs/tags/v}
+      - name: Set Version
+        run: |
+          sed -ri 's/version = "(.*)"/version = "${{ steps.tag.outputs.version }}"/' pyproject.toml
+          sed -i 's/"dev"/"${{ steps.tag.outputs.version }}"/' src/texturize/__init__.py
+      - name: Setup Conda
+        uses: s-weigand/setup-conda@v1
+        with:
+          activate-conda: true
+          python-version: ${{ matrix.python }}
+      - name: Install Requirements
+        run: |
+          pip install poetry invoke
+      - name: Create Package
+        run: |
+          poetry build
+      - name: Publish Package
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          poetry publish -n

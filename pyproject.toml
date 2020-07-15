@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "texturize"
 description = "🤖🖌️ Generate new photo-realistic textures similar to a source image."
-version = "0.11.0"
+version = "0.11-dev"
 authors = ["Alex J. Champandard <445208+alexjc@users.noreply.github.com>"]
 readme = "docs/pypi.rst"
 repository = "https://github.com/photogeniq/neural-texturize"
@@ -28,6 +28,7 @@ schema = "^0.7.2"
 pytest = "^5.4.3"
 hypothesis = "^5.16.1"
 pytest-cov = "^2.9.0"
+keyring = "^21.2.1"
 
 [build-system]
 requires = ["poetry>=1.0"]
