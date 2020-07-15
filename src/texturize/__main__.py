@@ -128,7 +128,6 @@ def main():
 
         # Setup the command specified by user.
         if command == "remix":
-            source_img = source_img.resize((512, 512), resample=4)
             cmd = commands.Remix(source_img, mode=mode)
         if command == "enhance":
             cmd = commands.Enhance(target_img, source_img, mode=mode, zoom=zoom)

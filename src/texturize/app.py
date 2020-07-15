@@ -69,7 +69,7 @@ class TextureSynthesizer:
             yield i, loss, converge, opt.lr, opt.retries
 
             # See if we can terminate the optimization early.
-            if i > 10 and current <= threshold:
+            if i > 20 and progress and current <= threshold:
                 plateau += 1
                 if plateau > 2:
                     break
