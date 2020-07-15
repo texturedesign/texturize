@@ -260,10 +260,9 @@ commands above::
         --variations=V          Number of images to generate at same time. [default: 1]
         --seed=SEED             Configure the random number generation.
         --mode=MODE             Either "patch" or "gram" to manually specify critics.
-        --octaves=O             Number of octaves to process. [default: 5]
-        --threshold=T           Quality for optimization, lower is better.  Defaults to 1e-3
-                                for "patch" and 1e-7 for "gram".
-        --iterations=I          Maximum number of iterations each octave. [default: 99]
+        --octaves=O             Number of octaves to process. Defaults to 5 for 512x512, or
+                                4 for 256x256 equivalent pixel count.
+        --quality=Q             Quality for optimization, higher is better. [default: 5]
         --device=DEVICE         Hardware to use, either "cpu" or "cuda".
         --precision=PRECISION   Floating-point format to use, "float16" or "float32".
         --quiet                 Suppress any messages going to stdout.
@@ -372,6 +371,8 @@ are done.
 
 .. |Package Version| image:: https://img.shields.io/pypi/v/texturize?color=turquoise
     :alt: PyPI - Version
+    :target: https://pypi.org/project/texturize/
 
 .. |Build Status| image:: https://img.shields.io/github/workflow/status/photogeniq/texturize/build
     :alt: GitHub Workflow Status
+    :target: https://github.com/photogeniq/texturize/actions?query=workflow%3Abuild
