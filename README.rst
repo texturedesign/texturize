@@ -16,7 +16,7 @@ building ``texturize`` as the highest-quality open source library available!
 3. `Options & Usage <#3-options--usage>`_
 4. `Installation <#4-installation>`_
 
-|Python Version| |License Type| |Project Stars| |Build Status|
+|Python Version| |License Type| |Project Stars| |Package Version| |Build Status|
 
 ----
 
@@ -26,8 +26,8 @@ building ``texturize`` as the highest-quality open source library available!
 The examples are available as notebooks, and you can run them directly in-browser
 thanks to Jupyter and Google Colab:
 
-* **Gravel** — `online demo <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Demo_Gravel.ipynb>`__ and `source notebook <https://github.com/photogeniq/neural-texturize/blob/master/examples/Demo_Gravel.ipynb>`__.
-* **Grass** — `online demo <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Demo_Grass.ipynb>`__ and `source notebook <https://github.com/photogeniq/neural-texturize/blob/master/examples/Demo_Grass.ipynb>`__.
+* **Gravel** — `online demo <https://colab.research.google.com/github/photogeniq/texturize/blob/master/examples/Demo_Gravel.ipynb>`__ and `source notebook <https://github.com/photogeniq/texturize/blob/master/examples/Demo_Gravel.ipynb>`__.
+* **Grass** — `online demo <https://colab.research.google.com/github/photogeniq/texturize/blob/master/examples/Demo_Grass.ipynb>`__ and `source notebook <https://github.com/photogeniq/texturize/blob/master/examples/Demo_Grass.ipynb>`__.
 
 These demo materials are released under the Creative Commons `BY-NC-SA license <https://creativecommons.org/licenses/by-nc-sa/3.0/>`_, including the text, images and code.
 
@@ -79,7 +79,7 @@ Remix Examples
 
 .. Remix Online Tool
 .. ~~~~~~~~~~~~~~~~~
-.. * `colab notebook <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Tool_Remix.ipynb>`__
+.. * `colab notebook <https://colab.research.google.com/github/photogeniq/texturize/blob/master/examples/Tool_Remix.ipynb>`__
 
 ----
 
@@ -129,7 +129,7 @@ Remake Examples
 
 .. Remake Online Tool
 .. ~~~~~~~~~~~~~~~~~~
-.. * `colab notebook <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Tool_Remake.ipynb>`__
+.. * `colab notebook <https://colab.research.google.com/github/photogeniq/texturize/blob/master/examples/Tool_Remake.ipynb>`__
 
 ----
 
@@ -181,7 +181,7 @@ Mashup Examples
 
 .. Mashup Online Tool
 .. ~~~~~~~~~~~~~~~~~~
-.. * `colab notebook <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Tool_Mashup.ipynb>`__
+.. * `colab notebook <https://colab.research.google.com/github/photogeniq/texturize/blob/master/examples/Tool_Mashup.ipynb>`__
 
 ----
 
@@ -231,7 +231,7 @@ Enhance Examples
 
 .. Enhance Online Tool
 .. ~~~~~~~~~~~~~~~~~~~
-.. * `colab notebook <https://colab.research.google.com/github/photogeniq/neural-texturize/blob/master/examples/Tool_Enhance.ipynb>`__
+.. * `colab notebook <https://colab.research.google.com/github/photogeniq/texturize/blob/master/examples/Tool_Enhance.ipynb>`__
 
 ----
 
@@ -324,7 +324,7 @@ repository to your local disk:
 
 .. code-block:: bash
 
-    git clone https://github.com/photogeniq/neural-texturize.git
+    git clone https://github.com/photogeniq/texturize.git
 
 Then, you can create a new virtual environment called ``myenv`` by installing
 `Miniconda <https://docs.conda.io/en/latest/miniconda.html>`__ and calling the following
@@ -332,7 +332,7 @@ commands, depending whether you want to run on CPU or GPU (via CUDA):
 
 .. code-block:: bash
 
-    cd neural-texturize
+    cd texturize
 
     # a) Use this if you have an *Nvidia GPU only*.
     conda env create -n myenv -f tasks/setup-cuda.yml
@@ -341,7 +341,7 @@ commands, depending whether you want to run on CPU or GPU (via CUDA):
     conda env create -n myenv -f tasks/setup-cpu.yml
 
 Once the virtual environment is created, you can activate it and finish the setup of
-``neural-texturize`` with these commands:
+``texturize`` with these commands:
 
 .. code-block:: bash
 
@@ -359,19 +359,19 @@ are done.
 
 ----
 
-|Python Version| |License Type| |Project Stars| |Build Status|
+|Python Version| |License Type| |Project Stars| |Package Version| |Build Status|
 
 .. |Python Version| image:: https://img.shields.io/pypi/pyversions/texturize
     :target: https://www.python.org/
 
 .. |License Type| image:: https://img.shields.io/badge/license-AGPL-blue.svg
-    :target: https://github.com/photogeniq/neural-texturize/blob/master/LICENSE
+    :target: https://github.com/photogeniq/texturize/blob/master/LICENSE
 
-.. |Project Stars| image:: https://img.shields.io/github/stars/photogeniq/neural-texturize.svg?style=flat
-    :target: https://github.com/photogeniq/neural-texturize/stargazers
+.. |Project Stars| image:: https://img.shields.io/github/stars/photogeniq/texturize.svg?style=flat
+    :target: https://github.com/photogeniq/texturize/stargazers
 
-.. |Project Status| image:: https://img.shields.io/pypi/status/texturize
-    :alt: PyPI - Status
+.. |Package Version| image:: https://img.shields.io/pypi/v/texturize?color=turquoise
+    :alt: PyPI - Version
 
-.. |Build Status| image:: https://img.shields.io/github/workflow/status/photogeniq/neural-texturize/build
+.. |Build Status| image:: https://img.shields.io/github/workflow/status/photogeniq/texturize/build
     :alt: GitHub Workflow Status

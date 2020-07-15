@@ -1,7 +1,7 @@
 texturize
 =========
 
-.. image:: https://raw.githubusercontent.com/photogeniq/neural-texturize/master/docs/grass-x4.webp
+.. image:: https://raw.githubusercontent.com/photogeniq/texturize/master/docs/grass-x4.webp
 
 A command-line tool and Python library to automatically generate new textures similar
 to a source image or photograph.  It's useful in the context of computer graphics if
@@ -19,13 +19,13 @@ building ``texturize`` as the highest-quality open source library available!
     :target: https://www.python.org/
 
 .. |License Type| image:: https://img.shields.io/badge/license-AGPL-blue.svg
-    :target: https://github.com/photogeniq/neural-texturize/blob/master/LICENSE
+    :target: https://github.com/photogeniq/texturize/blob/master/LICENSE
 
-.. |Project Stars| image:: https://img.shields.io/github/stars/photogeniq/neural-texturize.svg?style=flat
-    :target: https://github.com/photogeniq/neural-texturize/stargazers
+.. |Project Stars| image:: https://img.shields.io/github/stars/photogeniq/texturize.svg?style=flat
+    :target: https://github.com/photogeniq/texturize/stargazers
 
 .. |Package Version| image:: https://img.shields.io/pypi/v/texturize?color=turquoise
     :alt: PyPI - Version
 
-.. |Build Status| image:: https://img.shields.io/github/workflow/status/photogeniq/neural-texturize/build
+.. |Build Status| image:: https://img.shields.io/github/workflow/status/photogeniq/texturize/build
     :alt: GitHub Workflow Status

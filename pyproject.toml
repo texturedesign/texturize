@@ -1,10 +1,10 @@
 [tool.poetry]
 name = "texturize"
 description = "🤖🖌️ Generate new photo-realistic textures similar to a source image."
-version = "0.11-dev"
+version = "0.12-dev"
 authors = ["Alex J. Champandard <445208+alexjc@users.noreply.github.com>"]
 readme = "docs/pypi.rst"
-repository = "https://github.com/photogeniq/neural-texturize"
+repository = "https://github.com/photogeniq/texturize"
 license = "AGPL-3.0"
 classifiers = [
     "Development Status :: 3 - Alpha",
