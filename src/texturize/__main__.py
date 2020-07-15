@@ -97,7 +97,7 @@ def validate(config):
 def main():
     # Parse the command-line options based on the script's documentation.
     config = docopt.docopt(__doc__[204:], version=__version__, help=False)
-    all_commands = [cmd.lower() for cmd in commands.__all__]
+    all_commands = [cmd.lower() for cmd in commands.__all__] + ["--help"]
     command = [cmd for cmd in all_commands if config[cmd]][0]
 
     # Ensure the user-specified values are correct, separate command-specific arguments.
@@ -128,6 +128,7 @@ def main():
 
         # Setup the command specified by user.
         if command == "remix":
+            source_img = source_img.resize((512, 512), resample=4)
             cmd = commands.Remix(source_img, mode=mode)
         if command == "enhance":
             cmd = commands.Enhance(target_img, source_img, mode=mode, zoom=zoom)
