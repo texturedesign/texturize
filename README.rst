@@ -16,7 +16,7 @@ building ``texturize`` as the highest-quality open source library available!
 3. `Options & Usage <#3-options--usage>`_
 4. `Installation <#4-installation>`_
 
-|Python Version| |License Type| |Project Stars| |Package Version| |Build Status|
+|Python Version| |License Type| |Project Stars| |Package Version| |Project Status| |Build Status|
 
 ----
 
@@ -39,7 +39,7 @@ These demo materials are released under the Creative Commons `BY-NC-SA license <
 a) REMIX
 --------
 
-    Generate a variation of any shape from a single texture.
+    Generate variations of any shape from a single texture.
 
 Remix Command-Line
 ~~~~~~~~~~~~~~~~~~
@@ -99,7 +99,7 @@ Remake Command-Line
 
     Examples:
         texturize remake samples/grass1.webp like samples/grass2.webp
-        texturize remake samples/gravel1.png like samples/gravel2.png
+        texturize remake samples/gravel1.png like samples/gravel2.png --weight 0.5
 
 
 Remake Library API
@@ -197,11 +197,11 @@ Enhance Command-Line
 .. code-block:: bash
 
     Usage:
-        texturize enhance TARGET [with] SOURCE
+        texturize enhance TARGET [with] SOURCE --zoom=ZOOM
 
     Examples:
-        texturize enhance samples/grass1.webp with samples/grass2.webp
-        texturize enhance samples/gravel1.png with samples/gravel2.png
+        texturize enhance samples/grass1.webp with samples/grass2.webp --zoom=2
+        texturize enhance samples/gravel1.png with samples/gravel2.png --zoom=4
 
 
 Enhance Library API
@@ -273,31 +273,31 @@ commands above::
 4. Installation
 ===============
 
-Existing Python [fastest]
--------------------------
+Latest Release [recommended]
+----------------------------
 
-We recommend using a `Miniconda <https://docs.conda.io/en/latest/miniconda.html>`__ to
-manage your Python environments.  If you have Python 3.6+ already running, you first
-need to ensure that PyTorch is available as per the `official installation guide <https://pytorch.org/get-started/locally/>`__:
+We suggest using `Miniconda 3.x <https://docs.conda.io/en/latest/miniconda.html>`__ to
+manage your Python environments.  Once the ``conda`` command-line tool is installed on
+your machine, there are setup scripts you can download directly from the repository:
 
 .. code-block:: bash
 
     # a) Use this if you have an *Nvidia GPU only*.
-    #   - with `conda`
-    conda install pytorch torchvision cudatoolkit=10.2 -c pytorch
-    #   - with `pip`
-    pip install torch==1.5.1+cu102 torchvision==0.6.1+cu102 -f https://download.pytorch.org/whl/torch_stable.html
+    curl -s https://github.com/photogeniq/texturize/blob/master/tasks/setup-cuda.yml -o setup.yml
 
     # b) Fallback if you just want to run on CPU.
-    #   - with `conda`
-    conda install pytorch torchvision cpuonly -c pytorch
-    #   - with `pip`
-    pip install torch==1.5.1+cpu torchvision==0.6.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
+    curl -s https://github.com/photogeniq/texturize/blob/master/tasks/setup-cpu.yml -o setup.yml
 
+Now you can create a fresh Conda environment for texture synthesis:
 
-**NOTE**: Any version of CUDA is suitable as long as PyTorch is working.  Replace the
-string ``10.2`` or ``102`` in the script above with the version of CUDA driver you have
-installed on your machine.
+.. code-block:: bash
+
+    conda env create -n myenv -f setup.yml
+    conda activate myenv
+
+**NOTE**: Any version of CUDA is suitable to run ``texturize`` as long as PyTorch is
+working.  See the official `PyTorch installation guide <https://pytorch.org/get-started/locally/>`__
+for alternatives ways to install the ``pytorch`` library.
 
 Then, you can fetch the latest version of the library from the Python Package Index
 (PyPI) using the following command:
@@ -312,11 +312,12 @@ Finally, you can check if everything worked by calling the command-line script:
 
     texturize --help
 
-Use ``pip uninstall`` to remove these packages once you are done.
+You can use ``conda env remove -n myenv`` to delete the virtual environment once you
+are done.
 
 
-Conda Environment [reliable]
-----------------------------
+Repository Install [developers]
+-------------------------------
 
 If you're a developer and want to install the library locally, start by cloning the
 repository to your local disk:
@@ -325,9 +326,11 @@ repository to your local disk:
 
     git clone https://github.com/photogeniq/texturize.git
 
-Then, you can create a new virtual environment called ``myenv`` by installing
-`Miniconda <https://docs.conda.io/en/latest/miniconda.html>`__ and calling the following
-commands, depending whether you want to run on CPU or GPU (via CUDA):
+We also recommend using `Miniconda 3.x <https://docs.conda.io/en/latest/miniconda.html>`__
+for development.  You can set up a new virtual environment called ``myenv`` by running
+the following commands, depending whether you want to run on CPU or GPU (via CUDA).
+For advanced setups like specifying which CUDA version to use, see the official
+`PyTorch installation guide <https://pytorch.org/get-started/locally/>`__.
 
 .. code-block:: bash
 
@@ -353,25 +356,28 @@ Finally, you can check if everything worked by calling the script:
 
     texturize --help
 
-You can use ``conda env remove -n myenv`` to delete the virtual environment once you
-are done.
+Use ``conda env remove -n myenv`` to remove the virtual environment once you are done.
 
 ----
 
-|Python Version| |License Type| |Project Stars| |Package Version| |Build Status|
+|Python Version| |License Type| |Project Stars| |Package Version| |Project Status| |Build Status|
 
 .. |Python Version| image:: https://img.shields.io/pypi/pyversions/texturize
-    :target: https://www.python.org/
+    :target: https://docs.conda.io/en/latest/miniconda.html
 
 .. |License Type| image:: https://img.shields.io/badge/license-AGPL-blue.svg
     :target: https://github.com/photogeniq/texturize/blob/master/LICENSE
 
-.. |Project Stars| image:: https://img.shields.io/github/stars/photogeniq/texturize.svg?style=flat
+.. |Project Stars| image:: https://img.shields.io/github/stars/photogeniq/texturize.svg?color=turquoise
     :target: https://github.com/photogeniq/texturize/stargazers
 
 .. |Package Version| image:: https://img.shields.io/pypi/v/texturize?color=turquoise
     :alt: PyPI - Version
     :target: https://pypi.org/project/texturize/
+
+.. |Project Status| image:: https://img.shields.io/pypi/status/texturize?color=#00ff00
+    :alt: PyPI - Status
+    :target: https://github.com/photogeniq/texturize
 
 .. |Build Status| image:: https://img.shields.io/github/workflow/status/photogeniq/texturize/build
     :alt: GitHub Workflow Status
