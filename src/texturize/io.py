@@ -1,4 +1,4 @@
-# neural-texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
+# texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
 import time
 import random
@@ -11,13 +11,17 @@ import torch
 import torchvision.transforms.functional as V
 
 
-def load_tensor_from_file(filename, device, mode="RGB"):
+def load_tensor_from_file(filename, device, mode=None):
     image = load_image_from_file(filename, mode)
     return load_tensor_from_image(image, device)
 
 
-def load_image_from_file(filename, mode="RGB"):
-    return PIL.Image.open(filename).convert(mode)
+def load_image_from_file(filename, mode=None):
+    image = PIL.Image.open(filename)
+    if mode is not None:
+        return image.convert(mode)
+    else:
+        return image
 
 
 def load_tensor_from_image(image, device, dtype=torch.float32):
@@ -51,7 +55,6 @@ def save_tensor_to_images(tensor, mode="RGB"):
 
 
 try:
-    import io
     from IPython.display import display, clear_output
     import ipywidgets
 except ImportError:
@@ -60,7 +63,7 @@ except ImportError:
 
 def show_image_as_tiles(image, count, size):
     def make_crop():
-        buffer = io.BytesIO()
+        buffer = BytesIO()
         x = random.randint(0, image.size[0] - size[0])
         y = random.randint(0, image.size[1] - size[1])
         tile = image.crop((x, y, x + size[0], y + size[1]))
@@ -105,7 +108,7 @@ def show_result_in_notebook(throttle=None, title=None):
         def update(self, result):
             assert len(result.images) == 1, "Only one image supported."
 
-            for out in save_tensor_to_images(result.images):
+            for out in save_tensor_to_images(result.images[:, 0:3]):
                 elapsed = time.time() - self.start_time
                 last, first = bool(result.iteration < 0), bool(result.iteration == 0)
                 self.html.set_trait(
@@ -127,7 +130,7 @@ def show_result_in_notebook(throttle=None, title=None):
                 if not last and self.total_sent / elapsed > self.throttle:
                     break
 
-                buffer = io.BytesIO()
+                buffer = BytesIO()
                 if throttle == float("+inf") or out.size[0] * out.size[1] < 192 * 192:
                     out.save(buffer, format="webp", method=6, lossless=True)
                 else:
