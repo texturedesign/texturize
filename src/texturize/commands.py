@@ -10,7 +10,7 @@ from .app import Application, Result
 from .critics import PatchCritic, GramMatrixCritic, HistogramCritic
 
 
-__all__ = ["Remix", "Mashup", "Enhance", "Remake"]
+__all__ = ["Remix", "Mashup", "Enhance", "Remake", "Repair"]
 
 
 def create_default_critics(mode):
@@ -66,6 +66,12 @@ def enlarge(image, size):
     return F.interpolate(image, size=size, mode="bicubic", align_corners=False).clamp(
         0.0, 1.0
     )
+
+
+def random_normal(size, mean):
+    b, _, h, w = size
+    current = torch.empty((b, 1, h, w), device=mean.device, dtype=torch.float32)
+    return (mean + current.normal_(std=0.1)).clamp(0.0, 1.0)
 
 
 class Remix(Command):
@@ -134,6 +140,34 @@ class Remake(Command):
         return Result(images * (weights + 0.0) + (1.0 - weights) * target, *result[1:])
 
 
+class Repair(Command):
+    def __init__(self, target, source, mode=None):
+        assert target.mode == "RGBA"
+        self.mode = mode or "patch"
+        self.critics = list(create_default_critics(self.mode).values())
+        self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
+        self.target = load_tensor_from_image(target.convert("RGBA"), device="cpu")
+
+    def prepare_critics(self, app, scale):
+        # source = renormalize(self.source, self.target[:, 0:3])
+        self._prepare_critics(app, scale, self.source, self.critics)
+        return [self.critics]
+
+    def prepare_seed_tensor(self, app, size, previous=None):
+        target = enlarge(self.target.to(device=app.device), size=size[2:])
+        if previous is None:
+            mean = self.source.mean(dim=(2, 3), keepdim=True).to(device=app.device)
+            current = random_normal(size, mean).to(device=app.device, dtype=app.precision)
+        else:
+            current = enlarge(previous, size=size[2:])
+
+        alpha = target[:, 3:4].detach()
+        return torch.cat(
+            [target[:, 0:3] * (alpha + 0.0) + (1.0 - alpha) * current, 1.0 - alpha],
+            dim=1,
+        )
+
+
 class Mashup(Command):
     def __init__(self, sources, mode=None):
         self.mode = mode or "patch"
@@ -164,12 +198,10 @@ class Mashup(Command):
 
     def prepare_seed_tensor(self, app, size, previous=None):
         if previous is None:
-            b, _, h, w = size
             means = [torch.mean(s, dim=(0, 2, 3), keepdim=True) for s in self.sources]
             mean = (sum(means) / len(means)).to(app.device)
-            result = torch.empty((b, 1, h, w), device=app.device, dtype=torch.float32)
-            result = (result.normal_(std=0.1) + mean).clamp(0.0, 1.0)
-            return result.to(dtype=app.precision)
+            result = random_normal(size, mean).to(dtype=app.precision)
+            return result.to(device=app.device, dtype=app.precision)
 
         return F.interpolate(
             previous, size=size[2:], mode="bicubic", align_corners=False

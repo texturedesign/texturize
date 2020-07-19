@@ -10,6 +10,7 @@ Usage:
     texturize enhance TARGET [with] SOURCE [options] --zoom=ZOOM
     texturize mashup SOURCE TARGET [options]
     texturize remake TARGET [like] SOURCE [options] --weights=WEIGHTS
+    texturize repair TARGET [with] SOURCE [options]
     texturize --help
 
 Examples:
@@ -32,7 +33,7 @@ Options:
     --mode=MODE             Either "patch" or "gram" to manually specify critics.
     --octaves=O             Number of octaves to process. Defaults to 5 for 512x512, or
                             4 for 256x256 equivalent pixel count.
-    --quality=Q             Quality for optimization, higher is better. [default: 5]
+    --quality=Q             Quality for optimization, higher is better. [default: 4]
     --device=DEVICE         Hardware to use, either "cpu" or "cuda".
     --precision=PRECISION   Floating-point format to use, "float16" or "float32".
     --quiet                 Suppress any messages going to stdout.
@@ -139,6 +140,10 @@ def main():
             config["size"] = target_img.size
         if command == "mashup":
             cmd = commands.Mashup([source_img, target_img], mode=mode)
+        if command == "repair":
+            cmd = commands.Repair(target_img, source_img, mode=mode)
+            config["octaves"] = 3
+            config["size"] = target_img.size
 
         # Process the files one by one, each may have multiple variations.
         try:
