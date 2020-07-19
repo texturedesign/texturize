@@ -129,7 +129,7 @@ class PatchCritic:
             sources = [self.builder.extract(f) for f in features[self.layer]]
             chunk_size = min(s.shape[2] for s in sources)
             chunks = [torch.split(s, chunk_size, dim=2) for s in sources]
-            return torch.cat(itertools.chain.from_iterable(chunks), dim=3)
+            return torch.cat(list(itertools.chain.from_iterable(chunks)), dim=3)
         else:
             return self.builder.extract(features[self.layer])
 
@@ -152,35 +152,39 @@ class PatchCritic:
         target = self.prepare(features)
         self.matcher.update_target(target)
 
-        with torch.no_grad():
-            if self.iteration == 1:
-                self.auto_split(self.matcher.compare_features_identity)
-                self.matcher.update_biases()
-
-            if target.flatten(1).shape[1] < 1_048_576:
-                self.auto_split(self.matcher.compare_features_matrix)
-            else:
-                self.auto_split(self.matcher.compare_features_identity)
-                self.auto_split(self.matcher.compare_features_inverse)
-                self.auto_split(
-                    self.matcher.compare_features_random,
-                    radius=[16, 8, 4, -1][self.iteration % 4],
-                )
-                self.auto_split(
-                    self.matcher.compare_features_nearby,
-                    radius=[4, 2, 1][self.iteration % 3],
-                )
-                self.auto_split(
-                    self.matcher.compare_features_coarse, parent=PatchCritic.LAST
-                )
-
-            PatchCritic.LAST = self.matcher
-            self.matcher.update_biases()
-            matched_target = self.matcher.reconstruct_target()
-
+        matched_target = self._update(target)
         yield 0.5 * F.mse_loss(target, matched_target)
         del matched_target
 
         matched_source = self.matcher.reconstruct_source()
         yield 0.5 * F.mse_loss(matched_source, self.patches)
         del matched_source
+
+    @torch.no_grad()
+    def _update(self, target):
+        if self.iteration == 1:
+            self.auto_split(self.matcher.compare_features_identity)
+            self.matcher.update_biases()
+
+        if target.flatten(1).shape[1] < 1_048_576:
+            self.auto_split(self.matcher.compare_features_matrix)
+        else:
+            self.auto_split(self.matcher.compare_features_identity)
+            self.auto_split(self.matcher.compare_features_inverse)
+            self.auto_split(
+                self.matcher.compare_features_random,
+                radius=[16, 8, 4, -1][self.iteration % 4],
+            )
+            self.auto_split(
+                self.matcher.compare_features_nearby,
+                radius=[4, 2, 1][self.iteration % 3],
+            )
+            self.auto_split(
+                self.matcher.compare_features_coarse, parent=PatchCritic.LAST
+            )
+
+        PatchCritic.LAST = self.matcher
+        self.matcher.update_biases()
+        matched_target = self.matcher.reconstruct_target()
+
+        return matched_target
