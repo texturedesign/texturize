@@ -1,4 +1,4 @@
-# neural-texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
+# texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
 import os
 import math
@@ -28,9 +28,11 @@ class TextureSynthesizer:
         """Run the optimizer on the image according to the loss returned by the critics.
         """
         critics = list(itertools.chain.from_iterable(critics))
-        image = seed_img.to(self.device).requires_grad_(True)
+        image = seed_img.to(self.device)
+        alpha = None if image.shape[1] == 3 else image[:, 3:4]
+        image = image[:, 0:3].detach().requires_grad_(True)
 
-        obj = MultiCriticObjective(self.encoder, critics)
+        obj = MultiCriticObjective(self.encoder, critics, alpha=alpha)
         opt = SolverLBFGS(obj, image, lr=self.learning_rate)
 
         progress = log.create_progress_bar(100)
