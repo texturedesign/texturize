@@ -1,4 +1,4 @@
-# neural-texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
+# texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
 import math
 
@@ -165,11 +165,8 @@ class Mashup(Command):
     def prepare_seed_tensor(self, app, size, previous=None):
         if previous is None:
             b, _, h, w = size
-            mean = (
-                torch.cat(self.sources, dim=0)
-                .mean(dim=(0, 2, 3), keepdim=True)
-                .to(app.device)
-            )
+            means = [torch.mean(s, dim=(0, 2, 3), keepdim=True) for s in self.sources]
+            mean = (sum(means) / len(means)).to(app.device)
             result = torch.empty((b, 1, h, w), device=app.device, dtype=torch.float32)
             result = (result.normal_(std=0.1) + mean).clamp(0.0, 1.0)
             return result.to(dtype=app.precision)

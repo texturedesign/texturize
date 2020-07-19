@@ -1,4 +1,6 @@
-# neural-texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
+# texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
+
+import itertools
 
 import torch
 import torch.nn.functional as F
@@ -125,7 +127,9 @@ class PatchCritic:
     def prepare(self, features):
         if isinstance(features[self.layer], (tuple, list)):
             sources = [self.builder.extract(f) for f in features[self.layer]]
-            return torch.cat(sources, dim=2)
+            chunk_size = min(s.shape[2] for s in sources)
+            chunks = [torch.split(s, chunk_size, dim=2) for s in sources]
+            return torch.cat(itertools.chain.from_iterable(chunks), dim=3)
         else:
             return self.builder.extract(features[self.layer])
 
