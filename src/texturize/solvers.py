@@ -1,4 +1,4 @@
-# neural-texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
+# texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
 import torch.optim
 
@@ -133,9 +133,10 @@ class MultiCriticObjective:
     gradients.
     """
 
-    def __init__(self, encoder, critics):
+    def __init__(self, encoder, critics, alpha=None):
         self.encoder = encoder
         self.critics = critics
+        self.alpha = alpha
 
     def __call__(self, image):
         """Main evaluation function that's called by the solver.  Processes the image,
@@ -157,5 +158,8 @@ class MultiCriticObjective:
         # Calculate the final loss and compute the gradients.
         loss = (sum(scores) / len(scores)).mean()
         loss.backward()
+
+        if self.alpha is not None:
+            image.grad.data.mul_(self.alpha)
 
         return loss, scores
