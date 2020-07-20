@@ -329,8 +329,9 @@ class FeatureMatcher:
             for (t1, t2) in iterate_range(a.shape[2], split):
                 assert t2 >= t1
 
+                factor = repro_a.indices.shape[2] / parent_a.indices.shape[2]
                 indices = F.interpolate(
-                    parent_a.indices.float() * 2.0,
+                    parent_a.indices.float() * factor,
                     size=repro_a.indices.shape[2:],
                     mode="nearest",
                 )[:, :, t1:t2].long()

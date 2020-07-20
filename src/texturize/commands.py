@@ -10,7 +10,7 @@ from .app import Application, Result
 from .critics import PatchCritic, GramMatrixCritic, HistogramCritic
 
 
-__all__ = ["Remix", "Mashup", "Enhance", "Remake", "Repair"]
+__all__ = ["Remix", "Mashup", "Enhance", "Expand", "Remake", "Repair"]
 
 
 def create_default_critics(mode):
@@ -62,10 +62,14 @@ def renormalize(origin, target):
     return result.clamp(0.0, 1.0)
 
 
-def enlarge(image, size):
+def upscale(image, size):
     return F.interpolate(image, size=size, mode="bicubic", align_corners=False).clamp(
         0.0, 1.0
     )
+
+
+def downscale(image, size):
+    return F.interpolate(image, size=size, mode="area").clamp(0.0, 1.0)
 
 
 def random_normal(size, mean):
@@ -78,7 +82,7 @@ class Remix(Command):
     def __init__(self, source, mode=None):
         self.mode = mode or "patch"
         self.critics = list(create_default_critics(self.mode).values())
-        self.source = load_tensor_from_image(source, device="cpu")
+        self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
 
     def prepare_critics(self, app, scale):
         self._prepare_critics(app, scale, self.source, self.critics)
@@ -93,7 +97,7 @@ class Remix(Command):
                 (result.normal_(std=0.1) + mean).clamp(0.0, 1.0).to(dtype=app.precision)
             )
 
-        return enlarge(previous, size=size[2:])
+        return upscale(previous, size=size[2:])
 
 
 class Enhance(Command):
@@ -101,8 +105,8 @@ class Enhance(Command):
         self.mode = mode or "gram"
         self.octaves = int(math.log(zoom, 2) + 1.0)
         self.critics = list(create_default_critics(self.mode).values())
-        self.source = load_tensor_from_image(source, device="cpu")
-        self.target = load_tensor_from_image(target, device="cpu")
+        self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
+        self.target = load_tensor_from_image(target.convert("RGB"), device="cpu")
 
     def prepare_critics(self, app, scale):
         self._prepare_critics(app, scale, self.source, self.critics)
@@ -110,9 +114,9 @@ class Enhance(Command):
 
     def prepare_seed_tensor(self, app, size, previous=None):
         if previous is not None:
-            return enlarge(previous, size=size[2:])
+            return upscale(previous, size=size[2:])
 
-        seed = enlarge(self.target.to(device=app.device), size=size[2:])
+        seed = downscale(self.target.to(device=app.device), size=size[2:])
         return renormalize(seed, self.source.to(app.device)).to(dtype=app.precision)
 
 
@@ -120,8 +124,8 @@ class Remake(Command):
     def __init__(self, target, source, mode=None, weights=[1.0]):
         self.mode = mode or "gram"
         self.critics = list(create_default_critics(self.mode).values())
-        self.source = load_tensor_from_image(source, device="cpu")
-        self.target = load_tensor_from_image(target, device="cpu")
+        self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
+        self.target = load_tensor_from_image(target.convert("RGB"), device="cpu")
         self.weights = torch.tensor(weights, dtype=torch.float32).view(-1, 1, 1, 1)
 
     def prepare_critics(self, app, scale):
@@ -129,7 +133,7 @@ class Remake(Command):
         return [self.critics]
 
     def prepare_seed_tensor(self, app, size, previous=None):
-        seed = enlarge(self.target.to(device=app.device), size=size[2:])
+        seed = upscale(self.target.to(device=app.device), size=size[2:])
         return renormalize(seed, self.source.to(app.device)).to(dtype=app.precision)
 
     def finalize_octave(self, result):
@@ -154,13 +158,16 @@ class Repair(Command):
         return [self.critics]
 
     def prepare_seed_tensor(self, app, size, previous=None):
-        target = enlarge(self.target.to(device=app.device), size=size[2:])
+        target = downscale(self.target.to(device=app.device), size=size[2:])
         if previous is None:
             mean = self.source.mean(dim=(2, 3), keepdim=True).to(device=app.device)
-            current = random_normal(size, mean).to(device=app.device, dtype=app.precision)
+            current = random_normal(size, mean).to(
+                device=app.device, dtype=app.precision
+            )
         else:
-            current = enlarge(previous, size=size[2:])
+            current = upscale(previous, size=size[2:])
 
+        # Use the alpha-mask directly from user.  Could blur it here for better results!
         alpha = target[:, 3:4].detach()
         return torch.cat(
             [target[:, 0:3] * (alpha + 0.0) + (1.0 - alpha) * current, 1.0 - alpha],
@@ -168,11 +175,50 @@ class Repair(Command):
         )
 
 
+class Expand(Command):
+    def __init__(self, target, source, mode=None, factor=None):
+        self.mode = mode or "patch"
+        self.factor = factor or (1.0, 1.0)
+
+        self.critics = list(create_default_critics(self.mode).values())
+        self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
+        self.target = load_tensor_from_image(target.convert("RGB"), device="cpu")
+
+    def prepare_critics(self, app, scale):
+        self._prepare_critics(app, scale, self.source, self.critics)
+        return [self.critics]
+
+    def prepare_seed_tensor(self, app, size, previous=None):
+        target_size = (int(size[2] / self.factor[0]), int(size[3] / self.factor[1]))
+        target = downscale(self.target.to(device=app.device), size=target_size)
+
+        if previous is None:
+            mean = self.source.mean(dim=(2, 3), keepdim=True).to(device=app.device)
+            current = random_normal(size, mean).to(
+                device=app.device, dtype=app.precision
+            )
+        else:
+            current = upscale(previous, size=size[2:])
+
+        start = (size[2] - target_size[0]) // 2, (size[3] - target_size[1]) // 2
+        slice_y = slice(start[0], start[0] + target_size[0])
+        slice_x = slice(start[1], start[1] + target_size[1])
+        current[:, :, slice_y, slice_x,] = target
+
+        # This currently uses a very crisp boolean mask, looks better when edges are
+        # smoothed for `overlap` pixels.
+        alpha = torch.ones_like(current[:, 0:1])
+        alpha[:, :, slice_y, slice_x,] = 0.0
+        return torch.cat([current, alpha], dim=1)
+
+
 class Mashup(Command):
     def __init__(self, sources, mode=None):
         self.mode = mode or "patch"
         self.critics = list(create_default_critics(self.mode).values())
-        self.sources = [load_tensor_from_image(s, device="cpu") for s in sources]
+        self.sources = [
+            load_tensor_from_image(s.convert("RGB"), device="cpu") for s in sources
+        ]
 
     def prepare_critics(self, app, scale):
         layers = [c.get_layers() for c in self.critics]

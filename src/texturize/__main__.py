@@ -6,9 +6,10 @@ r"""  _            _              _
   \__\___/_/\_\\__|\__,_|_|  |_/___\___|
 
 Usage:
-    texturize remix SOURCE... [options]
+    texturize remix SOURCE... [options] --size=WxH
     texturize enhance TARGET [with] SOURCE [options] --zoom=ZOOM
-    texturize mashup SOURCE TARGET [options]
+    texturize expand TARGET [with] SOURCE [options] --size=WxH
+    texturize mashup SOURCE TARGET [options] --size=WxH
     texturize remake TARGET [like] SOURCE [options] --weights=WEIGHTS
     texturize repair TARGET [with] SOURCE [options]
     texturize --help
@@ -133,7 +134,12 @@ def main():
         if command == "enhance":
             cmd = commands.Enhance(target_img, source_img, mode=mode, zoom=zoom)
             config["octaves"] = cmd.octaves
+            # Calculate the size based on the specified zoom.
             config["size"] = (target_img.size[0] * zoom, target_img.size[1] * zoom)
+        if command == "expand":
+            # Calculate the factor based on the specified size.
+            factor = (target_img.size[0] / config["size"][0], target_img.size[1] / config["size"][1])
+            cmd = commands.Expand(target_img, source_img, mode=mode, factor=factor)
         if command == "remake":
             cmd = commands.Remake(target_img, source_img, mode=mode, weights=weights)
             config["octaves"] = 1
