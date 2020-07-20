@@ -283,10 +283,10 @@ your machine, there are setup scripts you can download directly from the reposit
 .. code-block:: bash
 
     # a) Use this if you have an *Nvidia GPU only*.
-    curl -s https://github.com/photogeniq/texturize/blob/master/tasks/setup-cuda.yml -o setup.yml
+    curl -s https://raw.githubusercontent.com/photogeniq/texturize/master/tasks/setup-cuda.yml -o setup.yml
 
     # b) Fallback if you just want to run on CPU.
-    curl -s https://github.com/photogeniq/texturize/blob/master/tasks/setup-cpu.yml -o setup.yml
+    curl -s https://raw.githubusercontent.com/photogeniq/texturize/master/tasks/setup-cpu.yml -o setup.yml
 
 Now you can create a fresh Conda environment for texture synthesis:
 
