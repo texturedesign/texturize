@@ -92,7 +92,7 @@ def validate(config):
             "octaves": Or(None, Use(int)),
             "quality": Use(float),
             "model": Or("VGG11", "VGG13", "VGG16", "VGG19"),
-            "layers": Or(None, Use(split_string)),
+            "layers": Or(None, Use(split_strings)),
             "device": Or(None, "cpu", "cuda"),
             "precision": Or(None, "float16", "float32"),
             "help": Use(bool),

@@ -114,14 +114,15 @@ class SolverSGD:
         self.optimizer.zero_grad()
 
         # Let the objective compute the loss and its gradients.
-        loss = self.objective(self.image)
+        self.image.data.clamp_(0.0, 1.0)
+        loss, scores = self.objective(self.image)
         assert not torch.isnan(self.image.grad).any(), f"Gradient is NaN, loss {loss}."
 
         # Now compute the updates to the image according to the gradients.
         self.optimizer.step()
         assert not torch.isnan(self.image).any(), f"Image is NaN for loss {loss}."
 
-        return loss
+        return loss, score, True
 
 
 class MultiCriticObjective:
