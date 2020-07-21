@@ -228,7 +228,7 @@ class Mashup(Command):
         features = dict(zip(features[0].keys(), zip(*[f.values() for f in features])))
 
         # Initialize the critics from the combined dictionary.
-        for critic in self.critics:
+        for critic in critics:
             critic.from_features(features)
 
         return [critics]

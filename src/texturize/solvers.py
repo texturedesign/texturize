@@ -51,7 +51,7 @@ class SolverLBFGS:
 
         # Did the optimizer make progress as expected?
         cur_result = self.image.grad.data.abs().mean()
-        if cur_result < self.last_result[0] * 8.0:
+        if cur_result <= self.last_result[0] * 8.0:
             self.next_result = loss, scores
 
             if cur_result < self.last_result[0] * 2.0:

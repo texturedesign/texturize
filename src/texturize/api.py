@@ -1,4 +1,4 @@
-# neural-texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
+# texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
 import os
 import math
@@ -73,7 +73,7 @@ def process_octaves(cmd, **kwargs):
             continue
 
         yield Result(
-            r.images, r.octave, r.scale, -r.iteration, r.loss, r.rate, r.retries
+            r.images, r.octave, r.scale, -r.iteration, r.loss.item(), r.rate, r.retries
         )
 
 

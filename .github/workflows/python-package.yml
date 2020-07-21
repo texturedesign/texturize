@@ -39,10 +39,10 @@ jobs:
           poetry install
       - name: Run Automated Tests
         run: |
-          poetry run pytest -c tasks/pytest.ini -k test_match
-      - name: Run Application Tests
+          poetry run pytest -c tasks/pytest.ini -v -k "not test_api"
+      - name: Run API Test Suite
         run: |
-          poetry run pytest -c tasks/pytest.ini -k app_
+          poetry run pytest -c tasks/pytest.ini -v -k test_api --suite=fast
       - name: Create Package
         run: |
           poetry build
