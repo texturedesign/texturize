@@ -8,8 +8,8 @@ from texturize.api import process_octaves
 
 
 def test_gram_single(image, size=(96, 88)):
-    remix = Remix(image(size), mode="gram")
-    for r in process_octaves(remix, octaves=2, size=size):
+    remix = Remix(image(size))
+    for r in process_octaves(remix, mode="gram", octaves=2, size=size):
         assert len(r.images) == 1
         assert isinstance(r.images, torch.Tensor)
         assert r.images.shape[2:] == (size[1] // r.scale, size[0] // r.scale)
@@ -17,8 +17,8 @@ def test_gram_single(image, size=(96, 88)):
 
 
 def test_gram_variations(image, size=(72, 64)):
-    remix = Remix(image(size), mode="gram")
-    for r in process_octaves(remix, variations=2, octaves=2, size=size):
+    remix = Remix(image(size))
+    for r in process_octaves(remix, mode="gram", variations=2, octaves=2, size=size):
         assert len(r.images) == 2
         assert isinstance(r.images, torch.Tensor)
         assert r.images.shape[2:] == (size[1] // r.scale, size[0] // r.scale)

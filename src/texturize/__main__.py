@@ -35,6 +35,9 @@ Options:
     --octaves=O             Number of octaves to process. Defaults to 5 for 512x512, or
                             4 for 256x256 equivalent pixel count.
     --quality=Q             Quality for optimization, higher is better. [default: 4]
+
+    --model=MODEL           Name of the convolution network to use. [default: VGG11]
+    --layers=LAYERS         Comma-separated list of layers.
     --device=DEVICE         Hardware to use, either "cpu" or "cuda".
     --precision=PRECISION   Floating-point format to use, "float16" or "float32".
     --quiet                 Suppress any messages going to stdout.
@@ -69,7 +72,10 @@ def validate(config):
     def split_size(size: str):
         return tuple(map(int, size.split("x")))
 
-    def split_string(text: str):
+    def split_strings(text: str):
+        return text.split(",")
+
+    def split_floats(text: str):
         return tuple(map(float, text.split(",")))
 
     sch = Schema(
@@ -78,13 +84,15 @@ def validate(config):
             "TARGET": Or(None, str),
             "size": And(Use(split_size), tuple),
             "output": str,
-            "weights": And(Use(split_string), tuple),
+            "weights": Use(split_floats),
             "zoom": Use(int),
             "variations": Use(int),
             "seed": Or(None, Use(int)),
             "mode": Or(None, "patch", "gram", "hist"),
             "octaves": Or(None, Use(int)),
             "quality": Use(float),
+            "model": Or("VGG11", "VGG13", "VGG16", "VGG19"),
+            "layers": Or(None, Use(split_string)),
             "device": Or(None, "cpu", "cuda"),
             "precision": Or(None, "float16", "float32"),
             "help": Use(bool),
@@ -104,8 +112,8 @@ def main():
 
     # Ensure the user-specified values are correct, separate command-specific arguments.
     config = validate(config)
-    sources, target, output, seed, mode = [
-        config.pop(k) for k in ("SOURCE", "TARGET", "output", "seed", "mode")
+    sources, target, output, seed = [
+        config.pop(k) for k in ("SOURCE", "TARGET", "output", "seed")
     ]
     weights, zoom = [config.pop(k) for k in ("weights", "zoom")]
 
@@ -130,24 +138,27 @@ def main():
 
         # Setup the command specified by user.
         if command == "remix":
-            cmd = commands.Remix(source_img, mode=mode)
+            cmd = commands.Remix(source_img)
         if command == "enhance":
-            cmd = commands.Enhance(target_img, source_img, mode=mode, zoom=zoom)
+            cmd = commands.Enhance(target_img, source_img, zoom=zoom)
             config["octaves"] = cmd.octaves
             # Calculate the size based on the specified zoom.
             config["size"] = (target_img.size[0] * zoom, target_img.size[1] * zoom)
         if command == "expand":
             # Calculate the factor based on the specified size.
-            factor = (target_img.size[0] / config["size"][0], target_img.size[1] / config["size"][1])
-            cmd = commands.Expand(target_img, source_img, mode=mode, factor=factor)
+            factor = (
+                target_img.size[0] / config["size"][0],
+                target_img.size[1] / config["size"][1],
+            )
+            cmd = commands.Expand(target_img, source_img, factor=factor)
         if command == "remake":
-            cmd = commands.Remake(target_img, source_img, mode=mode, weights=weights)
+            cmd = commands.Remake(target_img, source_img, weights=weights)
             config["octaves"] = 1
             config["size"] = target_img.size
         if command == "mashup":
-            cmd = commands.Mashup([source_img, target_img], mode=mode)
+            cmd = commands.Mashup([source_img, target_img])
         if command == "repair":
-            cmd = commands.Repair(target_img, source_img, mode=mode)
+            cmd = commands.Repair(target_img, source_img)
             config["octaves"] = 3
             config["size"] = target_img.size
 

@@ -20,6 +20,9 @@ def process_iterations(
     octaves: int = None,
     variations: int = 1,
     quality: float = 2,
+    model: str = "VGG11",
+    layers: str = None,
+    mode: str = None,
     device: str = None,
     precision: str = None,
 ):
@@ -34,9 +37,11 @@ def process_iterations(
     app = Application(log, device, precision)
 
     # Encoder used by all the critics at every octave.
-    encoder = models.VGG11(pretrained=True, pool_type=torch.nn.AvgPool2d)
+    encoder = getattr(models, model)(pretrained=True, pool_type=torch.nn.AvgPool2d)
     encoder = encoder.to(device=app.device, dtype=app.precision)
     app.encoder = encoder
+    app.layers = layers
+    app.mode = mode
 
     # Coarse-to-fine rendering, number of octaves specified by user.
     seed = None

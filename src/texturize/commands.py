@@ -13,18 +13,30 @@ from .critics import PatchCritic, GramMatrixCritic, HistogramCritic
 __all__ = ["Remix", "Mashup", "Enhance", "Expand", "Remake", "Repair"]
 
 
-def create_default_critics(mode):
+def create_default_critics(mode, layers=None):
     if mode == "gram":
-        layers = ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
+        layers = layers or ("1_1", "1_1:2_1", "2_1", "2_1:3_1", "3_1")
     else:
-        layers = ("3_1", "2_1", "1_1")
+        layers = layers or ("3_1", "2_1", "1_1")
 
     if mode == "patch":
-        return {l: PatchCritic(layer=l) for l in layers}
+        return [PatchCritic(layer=l) for l in layers]
     elif mode == "gram":
-        return {l: GramMatrixCritic(layer=l) for l in layers}
+        return [GramMatrixCritic(layer=l) for l in layers]
     elif mode == "hist":
-        return {l: HistogramCritic(layer=l) for l in layers}
+        return [HistogramCritic(layer=l) for l in layers]
+
+
+def prepare_default_critics(app, scale, texture, critics):
+    texture_cur = F.interpolate(
+        texture, scale_factor=1.0 / scale, mode="area", recompute_scale_factor=False,
+    ).to(device=app.device, dtype=app.precision)
+
+    layers = [c.get_layers() for c in critics]
+    feats = dict(app.encoder.extract(texture_cur, layers))
+    for critic in critics:
+        critic.from_features(feats)
+    app.log.debug("<- texture:", tuple(texture_cur.shape[2:]))
 
 
 class Command:
@@ -36,20 +48,6 @@ class Command:
 
     def finalize_octave(self, result):
         return result
-
-    def _prepare_critics(self, app, scale, texture, critics):
-        texture_cur = F.interpolate(
-            texture,
-            scale_factor=1.0 / scale,
-            mode="area",
-            recompute_scale_factor=False,
-        ).to(device=app.device, dtype=app.precision)
-
-        layers = [c.get_layers() for c in critics]
-        feats = dict(app.encoder.extract(texture_cur, layers))
-        for critic in critics:
-            critic.from_features(feats)
-        app.log.debug("<- texture:", tuple(texture_cur.shape[2:]))
 
 
 def renormalize(origin, target):
@@ -79,14 +77,13 @@ def random_normal(size, mean):
 
 
 class Remix(Command):
-    def __init__(self, source, mode=None):
-        self.mode = mode or "patch"
-        self.critics = list(create_default_critics(self.mode).values())
+    def __init__(self, source):
         self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
 
     def prepare_critics(self, app, scale):
-        self._prepare_critics(app, scale, self.source, self.critics)
-        return [self.critics]
+        critics = create_default_critics(app.mode or "patch", app.layers)
+        prepare_default_critics(app, scale, self.source, critics)
+        return [critics]
 
     def prepare_seed_tensor(self, app, size, previous=None):
         if previous is None:
@@ -101,16 +98,15 @@ class Remix(Command):
 
 
 class Enhance(Command):
-    def __init__(self, target, source, mode=None, zoom=1):
-        self.mode = mode or "gram"
+    def __init__(self, target, source, zoom=1):
         self.octaves = int(math.log(zoom, 2) + 1.0)
-        self.critics = list(create_default_critics(self.mode).values())
         self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
         self.target = load_tensor_from_image(target.convert("RGB"), device="cpu")
 
     def prepare_critics(self, app, scale):
-        self._prepare_critics(app, scale, self.source, self.critics)
-        return [self.critics]
+        critics = create_default_critics(app.mode or "gram", app.layers)
+        prepare_default_critics(app, scale, self.source, critics)
+        return [critics]
 
     def prepare_seed_tensor(self, app, size, previous=None):
         if previous is not None:
@@ -121,16 +117,15 @@ class Enhance(Command):
 
 
 class Remake(Command):
-    def __init__(self, target, source, mode=None, weights=[1.0]):
-        self.mode = mode or "gram"
-        self.critics = list(create_default_critics(self.mode).values())
+    def __init__(self, target, source, weights=[1.0]):
         self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
         self.target = load_tensor_from_image(target.convert("RGB"), device="cpu")
         self.weights = torch.tensor(weights, dtype=torch.float32).view(-1, 1, 1, 1)
 
     def prepare_critics(self, app, scale):
-        self._prepare_critics(app, scale, self.source, self.critics)
-        return [self.critics]
+        critics = create_default_critics(app.mode or "gram", app.layers)
+        prepare_default_critics(app, scale, self.source, critics)
+        return [critics]
 
     def prepare_seed_tensor(self, app, size, previous=None):
         seed = upscale(self.target.to(device=app.device), size=size[2:])
@@ -145,17 +140,16 @@ class Remake(Command):
 
 
 class Repair(Command):
-    def __init__(self, target, source, mode=None):
+    def __init__(self, target, source):
         assert target.mode == "RGBA"
-        self.mode = mode or "patch"
-        self.critics = list(create_default_critics(self.mode).values())
         self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
         self.target = load_tensor_from_image(target.convert("RGBA"), device="cpu")
 
     def prepare_critics(self, app, scale):
+        critics = create_default_critics(app.mode or "patch", app.layers)
         # source = renormalize(self.source, self.target[:, 0:3])
-        self._prepare_critics(app, scale, self.source, self.critics)
-        return [self.critics]
+        prepare_default_critics(app, scale, self.source, critics)
+        return [critics]
 
     def prepare_seed_tensor(self, app, size, previous=None):
         target = downscale(self.target.to(device=app.device), size=size[2:])
@@ -176,17 +170,15 @@ class Repair(Command):
 
 
 class Expand(Command):
-    def __init__(self, target, source, mode=None, factor=None):
-        self.mode = mode or "patch"
+    def __init__(self, target, source, factor=None):
         self.factor = factor or (1.0, 1.0)
-
-        self.critics = list(create_default_critics(self.mode).values())
         self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
         self.target = load_tensor_from_image(target.convert("RGB"), device="cpu")
 
     def prepare_critics(self, app, scale):
-        self._prepare_critics(app, scale, self.source, self.critics)
-        return [self.critics]
+        critics = create_default_critics(app.mode or "patch", app.layers)
+        prepare_default_critics(app, scale, self.source, critics)
+        return [critics]
 
     def prepare_seed_tensor(self, app, size, previous=None):
         target_size = (int(size[2] / self.factor[0]), int(size[3] / self.factor[1]))
@@ -213,15 +205,14 @@ class Expand(Command):
 
 
 class Mashup(Command):
-    def __init__(self, sources, mode=None):
-        self.mode = mode or "patch"
-        self.critics = list(create_default_critics(self.mode).values())
+    def __init__(self, sources):
         self.sources = [
             load_tensor_from_image(s.convert("RGB"), device="cpu") for s in sources
         ]
 
     def prepare_critics(self, app, scale):
-        layers = [c.get_layers() for c in self.critics]
+        critics = create_default_critics(app.mode or "patch", app.layers)
+        all_layers = [c.get_layers() for c in critics]
         sources = [
             F.interpolate(
                 img,
@@ -233,14 +224,14 @@ class Mashup(Command):
         ]
 
         # Combine all features into a single dictionary.
-        features = [dict(app.encoder.extract(f, layers)) for f in sources]
+        features = [dict(app.encoder.extract(f, all_layers)) for f in sources]
         features = dict(zip(features[0].keys(), zip(*[f.values() for f in features])))
 
         # Initialize the critics from the combined dictionary.
         for critic in self.critics:
             critic.from_features(features)
 
-        return [self.critics]
+        return [critics]
 
     def prepare_seed_tensor(self, app, size, previous=None):
         if previous is None:
