@@ -10,7 +10,12 @@ import torch.nn.functional as F
 
 from .logger import get_default_log
 from .critics import GramMatrixCritic, PatchCritic
-from .solvers import SolverLBFGS, MultiCriticObjective
+from .solvers import (
+    SolverSGD,
+    SolverLBFGS,
+    MultiCriticObjective,
+    SequentialCriticObjective,
+)
 from .io import *
 
 
@@ -24,7 +29,30 @@ class TextureSynthesizer:
         self.quality = quality
         self.learning_rate = lr
 
-    def run(self, log, seed_img, critics):
+    def run(self, progress, seed_img, *args):
+        for oc, sc in itertools.product(
+            [MultiCriticObjective, SequentialCriticObjective], [SolverLBFGS, SolverSGD],
+        ):
+            if sc == SolverLBFGS and seed_img.dtype == torch.float16:
+                print('skip', sc)
+                continue
+
+            try:
+                yield from self._run(progress, seed_img, *args, objective_class=oc, solver_class=sc)
+                progress.finish()
+                return
+            except RuntimeError as e:
+                if "CUDA out of memory." not in str(e):
+                    raise
+                print('RUN FAILED', oc, sc)
+            finally:
+                print(dir(progress))
+
+        raise RuntimeError("CUDA out of memory.")
+
+    def _run(
+        self, progress, seed_img, critics, objective_class=None, solver_class=None
+    ):
         """Run the optimizer on the image according to the loss returned by the critics.
         """
         critics = list(itertools.chain.from_iterable(critics))
@@ -32,26 +60,21 @@ class TextureSynthesizer:
         alpha = None if image.shape[1] == 3 else image[:, 3:4]
         image = image[:, 0:3].detach().requires_grad_(True)
 
-        obj = MultiCriticObjective(self.encoder, critics, alpha=alpha)
-        opt = SolverLBFGS(obj, image, lr=self.learning_rate)
+        obj = objective_class(self.encoder, critics, alpha=alpha)
+        opt = solver_class(obj, image, lr=self.learning_rate)
 
-        progress = log.create_progress_bar(100)
+        for i, loss, converge, lr, retries in self._iterate(opt):
+            # Constrain the image to the valid color range.
+            image.data.clamp_(0.0, 1.0)
 
-        try:
-            for i, loss, converge, lr, retries in self._iterate(opt):
-                # Constrain the image to the valid color range.
-                image.data.clamp_(0.0, 1.0)
+            # Update the progress bar with the result!
+            p = min(max(converge * 100.0, 0.0), 100.0)
+            progress.update(p, loss=loss, iter=i)
 
-                # Update the progress bar with the result!
-                p = min(max(converge * 100.0, 0.0), 100.0)
-                progress.update(p, loss=loss, iter=i)
+            # Return back to the user...
+            yield loss, image, lr, retries
 
-                # Return back to the user...
-                yield loss, image, lr, retries
-
-            progress.max_value = i + 1
-        finally:
-            progress.finish()
+        progress.max_value = i + 1
 
     def _iterate(self, opt):
         threshold = math.pow(0.1, 1 + math.log(1 + self.quality))
@@ -60,18 +83,18 @@ class TextureSynthesizer:
 
         for i in itertools.count():
             # Perform one step of the optimization.
-            loss, scores, progress = opt.step()
+            loss, scores = opt.step()
 
             # Progress metric loosely based on convergence and time.
             current = (previous - loss) / loss
-            c = math.exp(-max(current - threshold, 0.0) / (math.log(1+i) * 0.05))
+            c = math.exp(-max(current - threshold, 0.0) / (math.log(2 + i) * 0.05))
             converge = converge * 0.8 + 0.2 * c
 
             # Return this iteration to the caller...
             yield i, loss, converge, opt.lr, opt.retries
 
             # See if we can terminate the optimization early.
-            if i > 20 and progress and current <= threshold:
+            if i > 3 and current <= threshold:
                 plateau += 1
                 if plateau > 2:
                     break
@@ -102,15 +125,13 @@ class Application:
         synth = TextureSynthesizer(self.device, encoder, lr=1.0, quality=quality)
         result_img = result_img.to(dtype=self.precision)
 
-        # Now we can enable the automatic gradient computation to run the optimization.
-        with torch.enable_grad():
-            # The first iteration contains the rescaled image with noise.
-            yield Result(result_img, octave, scale, 0, float("+inf"), 1.0, 0)
+        # The first iteration contains the rescaled image with noise.
+        yield Result(result_img, octave, scale, 0, float("+inf"), 1.0, 0)
 
-            for iteration, (loss, result_img, lr, retries) in enumerate(
-                synth.run(self.log, result_img, critics), start=1
-            ):
-                yield Result(result_img, octave, scale, iteration, loss, lr, retries)
+        for iteration, (loss, result_img, lr, retries) in enumerate(
+            synth.run(self.log, result_img, critics), start=1
+        ):
+            yield Result(result_img, octave, scale, iteration, loss, lr, retries)
 
-            # The last iteration is repeated to indicate completion.
-            yield Result(result_img, octave, scale, -iteration, loss, lr, retries)
+        # The last iteration is repeated to indicate completion.
+        yield Result(result_img, octave, scale, -iteration, loss, lr, retries)

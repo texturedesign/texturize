@@ -49,19 +49,36 @@ def process_iterations(
         app.log.info(f"\n OCTAVE #{octave} ")
         app.log.debug("<- scale:", f"1/{scale}")
 
-        critics = cmd.prepare_critics(app, scale)
+        progress = log.create_progress_bar(100)
 
-        result_size = (variations, 3, size[1] // scale, size[0] // scale)
-        seed = cmd.prepare_seed_tensor(app, result_size, previous=seed)
-        app.log.debug("<- seed:", tuple(seed.shape[2:]), "\n")
+        for dtype in [torch.float32, torch.float16]:
+            if app.precision != dtype:
+                print('FLOAT', dtype)
+                app.precision = dtype
+                app.encoder = app.encoder.to(dtype=dtype)
+                if seed is not None:
+                    seed = seed.to(app.device)
 
-        for result in app.process_octave(
-            seed, app.encoder, critics, octave, scale, quality=quality,
-        ):
-            yield result
+            try:
+                critics = cmd.prepare_critics(app, scale)
 
-        seed = result.images
-        del result
+                result_size = (variations, 3, size[1] // scale, size[0] // scale)
+                seed = cmd.prepare_seed_tensor(app, result_size, previous=seed)
+                app.log.debug("<- seed:", tuple(seed.shape[2:]), "\n")
+
+                for result in app.process_octave(
+                    seed, app.encoder, critics, octave, scale, quality=quality,
+                ):
+                    yield result
+
+                seed = result.images
+                del result
+                break
+
+            except RuntimeError as e:
+                if "CUDA out of memory." not in str(e):
+                    raise
+                print('DTYPE FAILED', dtype)
 
 
 @torch.no_grad()
@@ -73,7 +90,7 @@ def process_octaves(cmd, **kwargs):
             continue
 
         yield Result(
-            r.images, r.octave, r.scale, -r.iteration, r.loss.item(), r.rate, r.retries
+            r.images, r.octave, r.scale, -r.iteration, r.loss, r.rate, r.retries
         )
 
 
