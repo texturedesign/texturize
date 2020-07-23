@@ -34,7 +34,6 @@ class TextureSynthesizer:
             [MultiCriticObjective, SequentialCriticObjective], [SolverLBFGS, SolverSGD],
         ):
             if sc == SolverLBFGS and seed_img.dtype == torch.float16:
-                print('skip', sc)
                 continue
 
             try:
@@ -44,9 +43,9 @@ class TextureSynthesizer:
             except RuntimeError as e:
                 if "CUDA out of memory." not in str(e):
                     raise
-                print('RUN FAILED', oc, sc)
-            finally:
-                print(dir(progress))
+
+                import gc; gc.collect
+                torch.cuda.empty_cache()
 
         raise RuntimeError("CUDA out of memory.")
 
@@ -129,7 +128,7 @@ class Application:
         yield Result(result_img, octave, scale, 0, float("+inf"), 1.0, 0)
 
         for iteration, (loss, result_img, lr, retries) in enumerate(
-            synth.run(self.log, result_img, critics), start=1
+            synth.run(self.progress, result_img, critics), start=1
         ):
             yield Result(result_img, octave, scale, iteration, loss, lr, retries)
 

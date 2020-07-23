@@ -36,7 +36,7 @@ def prepare_default_critics(app, scale, texture, critics):
     feats = dict(app.encoder.extract(texture_cur, layers))
     for critic in critics:
         critic.from_features(feats)
-    app.log.debug("<- texture:", tuple(texture_cur.shape[2:]))
+    app.log.debug("<- source:", tuple(texture_cur.shape[2:]), "\n")
 
 
 class Command:

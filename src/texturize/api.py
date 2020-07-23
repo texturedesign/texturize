@@ -49,11 +49,13 @@ def process_iterations(
         app.log.info(f"\n OCTAVE #{octave} ")
         app.log.debug("<- scale:", f"1/{scale}")
 
-        progress = log.create_progress_bar(100)
+        app.progress = app.log.create_progress_bar(100)
+
+        result_size = (variations, 3, size[1] // scale, size[0] // scale)
+        app.log.debug("<- seed:", tuple(result_size[2:]))
 
         for dtype in [torch.float32, torch.float16]:
             if app.precision != dtype:
-                print('FLOAT', dtype)
                 app.precision = dtype
                 app.encoder = app.encoder.to(dtype=dtype)
                 if seed is not None:
@@ -61,10 +63,7 @@ def process_iterations(
 
             try:
                 critics = cmd.prepare_critics(app, scale)
-
-                result_size = (variations, 3, size[1] // scale, size[0] // scale)
                 seed = cmd.prepare_seed_tensor(app, result_size, previous=seed)
-                app.log.debug("<- seed:", tuple(seed.shape[2:]), "\n")
 
                 for result in app.process_octave(
                     seed, app.encoder, critics, octave, scale, quality=quality,
@@ -78,7 +77,9 @@ def process_iterations(
             except RuntimeError as e:
                 if "CUDA out of memory." not in str(e):
                     raise
-                print('DTYPE FAILED', dtype)
+
+                import gc; gc.collect
+                torch.cuda.empty_cache()
 
 
 @torch.no_grad()
