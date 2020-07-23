@@ -47,7 +47,8 @@ class SolverLBFGS:
 
         # Prepare the image for evaluation, then run the objective.
         self.image.data.clamp_(0.0, 1.0)
-        loss, scores = self.objective(self.image)
+        with torch.enable_grad():
+            loss, scores = self.objective(self.image)
 
         # Did the optimizer make progress as expected?
         cur_result = self.image.grad.data.abs().mean()
@@ -89,7 +90,7 @@ class SolverLBFGS:
 
         # Report progress once the first few retries are done.
         loss, score = self.next_result
-        return loss, score, self.iteration > 3
+        return loss, score
 
 
 class SolverSGD:
@@ -100,6 +101,7 @@ class SolverSGD:
         self.objective = objective
         self.image = image
         self.lr = lr
+        self.retries = 0
 
         self.optimizer = getattr(torch.optim, opt_class)([image], lr=lr)
         self.iteration = 1
@@ -115,14 +117,18 @@ class SolverSGD:
 
         # Let the objective compute the loss and its gradients.
         self.image.data.clamp_(0.0, 1.0)
-        loss, scores = self.objective(self.image)
+        assert self.image.requires_grad == True
+        with torch.enable_grad():
+            loss, scores = self.objective(self.image)
+
+        assert self.image.grad is not None, "Objective did not produce image gradients."
         assert not torch.isnan(self.image.grad).any(), f"Gradient is NaN, loss {loss}."
 
         # Now compute the updates to the image according to the gradients.
         self.optimizer.step()
         assert not torch.isnan(self.image).any(), f"Image is NaN for loss {loss}."
 
-        return loss, score, True
+        return loss, scores
 
 
 class MultiCriticObjective:
@@ -148,6 +154,9 @@ class MultiCriticObjective:
         layers = [c.get_layers() for c in self.critics]
         feats = dict(self.encoder.extract(image, layers))
 
+        for critic in self.critics:
+            critic.on_start()
+
         # Apply all the critics one by one.
         scores = []
         for critic in self.critics:
@@ -160,7 +169,66 @@ class MultiCriticObjective:
         loss = (sum(scores) / len(scores)).mean()
         loss.backward()
 
+        for critic in self.critics:
+            critic.on_finish()
+
         if self.alpha is not None:
             image.grad.data.mul_(self.alpha)
 
-        return loss, scores
+        return loss.item(), scores
+
+
+class SequentialCriticObjective:
+    """An `Objective` that evaluates each of the critics one by one.
+    """
+
+    def __init__(self, encoder, critics, alpha=None):
+        self.encoder = encoder
+        self.critics = critics
+        self.alpha = alpha
+
+    def __call__(self, image):
+        # Apply all the critics one by one, keep track of results.
+        scores = []
+        for critic in self.critics:
+            critic.on_start()
+
+            # Extract minimal necessary features from image.
+            origin_feats = dict(
+                self.encoder.extract(image, critic.get_layers(), as_checkpoints=True)
+            )
+            detach_feats = {
+                k: f.detach().requires_grad_(True) for k, f in origin_feats.items()
+            }
+
+            # Ask the critic to evaluate the loss.
+            total = 0.0
+            for i, loss in enumerate(critic.evaluate(detach_feats)):
+                assert not torch.isnan(loss), "Loss diverged to NaN."
+                loss.backward()
+                total += loss.item()
+                del loss
+
+            scores.append(total)
+            critic.on_finish()
+
+            # Backpropagate from those features.
+            tensors, grads = [], []
+            for original, optimized in zip(
+                origin_feats.values(), detach_feats.values()
+            ):
+                if optimized.grad is not None:
+                    tensors.append(original)
+                    grads.append(optimized.grad)
+
+            torch.autograd.backward(tensors, grads)
+
+            del tensors
+            del grads
+            del origin_feats
+            del detach_feats
+
+        if self.alpha is not None:
+            image.grad.data.mul_(self.alpha)
+
+        return sum(scores) / len(scores), scores

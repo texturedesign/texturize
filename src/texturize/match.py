@@ -37,7 +37,7 @@ def torch_scatter_2d(output, indices, values):
     chanidx = torch.arange(0, c, dtype=torch.long, device=indices.device).view(-1, 1, 1)
 
     idx = chanidx * (h * w) + (indices[:, 0] * w + indices[:, 1])
-    output.flatten().scatter_(0, idx.flatten(), values.flatten())
+    output.flatten().scatter_(0, idx.flatten(), values.to(dtype=output.dtype).flatten())
 
 
 def torch_pad_reflect(array, padding):
@@ -53,7 +53,8 @@ def iterate_range(size, split=2):
         )
 
 
-def cosine_similarity_matrix_1d(source, target, eps=1e-8):
+def cosine_similarity_matrix_1d(source, target, eps=None):
+    eps = eps or (1e-3 if source.dtype == torch.float16 else 1e-8)
     source = source / (torch.norm(source, dim=1, keepdim=True) + eps)
     target = target / (torch.norm(target, dim=1, keepdim=True) + eps)
 
@@ -61,7 +62,8 @@ def cosine_similarity_matrix_1d(source, target, eps=1e-8):
     return torch.clamp(result, max=1.0 / eps)
 
 
-def cosine_similarity_vector_1d(source, target, eps=1e-8):
+def cosine_similarity_vector_1d(source, target, eps=None):
+    eps = eps or (1e-3 if source.dtype == torch.float16 else 1e-8)
     source = source / (torch.norm(source, dim=1, keepdim=True) + eps)
     target = target / (torch.norm(target, dim=1, keepdim=True) + eps)
 
@@ -157,7 +159,7 @@ class Mapping:
             cond, candidate_indices, self.indices[:, :, slice_y, slice_x]
         )
         self.scores[:, :, slice_y, slice_x] = torch.where(
-            cond, candidate_scores, self.scores[:, :, slice_y, slice_x]
+            cond, candidate_scores.float(), self.scores[:, :, slice_y, slice_x].float()
         )
         return (cond != 0).sum().item()
 

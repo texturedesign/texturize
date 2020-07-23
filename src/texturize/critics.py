@@ -24,6 +24,12 @@ class GramMatrixCritic:
         self.offset = offset
         self.gram = None
 
+    def on_start(self):
+        pass
+
+    def on_finish(self):
+        pass
+
     def evaluate(self, features):
         current = self._prepare_gram(features)
         result = F.mse_loss(current, self.gram.expand_as(current), reduction="none")
@@ -112,6 +118,7 @@ class PatchCritic:
     def __init__(self, layer, variety=0.2):
         self.layer = layer
         self.patches = None
+        self.device = None
         self.builder = PatchBuilder(patch_size=2)
         self.matcher = FeatureMatcher(device="cpu", variety=variety)
         self.split_hints = {}
@@ -119,9 +126,18 @@ class PatchCritic:
     def get_layers(self):
         return {self.layer}
 
-    def from_features(self, features):
-        self.patches = self.prepare(features)
+    def on_start(self):
+        self.patches = self.patches.to(self.device)
         self.matcher.update_sources(self.patches)
+
+    def on_finish(self):
+        self.matcher.sources = None
+        self.patches = self.patches.cpu()
+
+    def from_features(self, features):
+        patches = self.prepare(features).detach()
+        self.device = patches.device
+        self.patches = patches.cpu() 
         self.iteration = 0
 
     def prepare(self, features):
