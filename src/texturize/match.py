@@ -53,7 +53,8 @@ def iterate_range(size, split=2):
         )
 
 
-def cosine_similarity_matrix_1d(source, target, eps=1e-3):
+def cosine_similarity_matrix_1d(source, target, eps=None):
+    eps = eps or (1e-3 if source.dtype == torch.float16 else 1e-8)
     source = source / (torch.norm(source, dim=1, keepdim=True) + eps)
     target = target / (torch.norm(target, dim=1, keepdim=True) + eps)
 
@@ -61,7 +62,8 @@ def cosine_similarity_matrix_1d(source, target, eps=1e-3):
     return torch.clamp(result, max=1.0 / eps)
 
 
-def cosine_similarity_vector_1d(source, target, eps=1e-3):
+def cosine_similarity_vector_1d(source, target, eps=None):
+    eps = eps or (1e-3 if source.dtype == torch.float16 else 1e-8)
     source = source / (torch.norm(source, dim=1, keepdim=True) + eps)
     target = target / (torch.norm(target, dim=1, keepdim=True) + eps)
 
