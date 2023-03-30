@@ -176,7 +176,7 @@ class Expand(Command):
         self.target = load_tensor_from_image(target.convert("RGB"), device="cpu")
 
     def prepare_critics(self, app, scale):
-        critics = create_default_critics(app.mode or "hist", app.layers)
+        critics = create_default_critics(app.mode or "patch", app.layers)
         prepare_default_critics(app, scale, self.source, critics)
         return [critics]
 
@@ -211,7 +211,7 @@ class Mashup(Command):
         ]
 
     def prepare_critics(self, app, scale):
-        critics = create_default_critics(app.mode or "hist", app.layers)
+        critics = create_default_critics(app.mode or "patch", app.layers)
         all_layers = [c.get_layers() for c in critics]
         sources = [
             F.interpolate(
