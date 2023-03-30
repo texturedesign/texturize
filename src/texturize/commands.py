@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 
 from .io import load_tensor_from_image
-from .app import Application, Result
+from .app import Result
 from .critics import PatchCritic, GramMatrixCritic, HistogramCritic
 
 
@@ -81,7 +81,7 @@ class Remix(Command):
         self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
 
     def prepare_critics(self, app, scale):
-        critics = create_default_critics(app.mode or "patch", app.layers)
+        critics = create_default_critics(app.mode or "hist", app.layers)
         prepare_default_critics(app, scale, self.source, critics)
         return [critics]
 
@@ -104,7 +104,7 @@ class Enhance(Command):
         self.target = load_tensor_from_image(target.convert("RGB"), device="cpu")
 
     def prepare_critics(self, app, scale):
-        critics = create_default_critics(app.mode or "gram", app.layers)
+        critics = create_default_critics(app.mode or "hist", app.layers)
         prepare_default_critics(app, scale, self.source, critics)
         return [critics]
 
@@ -123,7 +123,7 @@ class Remake(Command):
         self.weights = torch.tensor(weights, dtype=torch.float32).view(-1, 1, 1, 1)
 
     def prepare_critics(self, app, scale):
-        critics = create_default_critics(app.mode or "gram", app.layers)
+        critics = create_default_critics(app.mode or "hist", app.layers)
         prepare_default_critics(app, scale, self.source, critics)
         return [critics]
 
@@ -146,7 +146,7 @@ class Repair(Command):
         self.target = load_tensor_from_image(target.convert("RGBA"), device="cpu")
 
     def prepare_critics(self, app, scale):
-        critics = create_default_critics(app.mode or "patch", app.layers)
+        critics = create_default_critics(app.mode or "hist", app.layers)
         # source = renormalize(self.source, self.target[:, 0:3])
         prepare_default_critics(app, scale, self.source, critics)
         return [critics]
@@ -176,7 +176,7 @@ class Expand(Command):
         self.target = load_tensor_from_image(target.convert("RGB"), device="cpu")
 
     def prepare_critics(self, app, scale):
-        critics = create_default_critics(app.mode or "patch", app.layers)
+        critics = create_default_critics(app.mode or "hist", app.layers)
         prepare_default_critics(app, scale, self.source, critics)
         return [critics]
 
@@ -211,7 +211,7 @@ class Mashup(Command):
         ]
 
     def prepare_critics(self, app, scale):
-        critics = create_default_critics(app.mode or "patch", app.layers)
+        critics = create_default_critics(app.mode or "hist", app.layers)
         all_layers = [c.get_layers() for c in critics]
         sources = [
             F.interpolate(

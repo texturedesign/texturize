@@ -82,6 +82,12 @@ class HistogramCritic:
     def __init__(self, layer):
         self.layer = layer
 
+    def on_start(self):
+        pass
+
+    def on_finish(self):
+        pass
+
     def get_layers(self):
         return {self.layer}
 
@@ -102,9 +108,8 @@ class HistogramCritic:
         f = features[self.layer]
         assert f.shape[0] == 1
 
-        directions = self.random_directions(f.shape[1], f.device)
-
         with torch.no_grad():
+            directions = self.random_directions(f.shape[1], f.device)
             source = self.sorted_projection(directions, self.features)
         current = self.sorted_projection(directions, f)
 
