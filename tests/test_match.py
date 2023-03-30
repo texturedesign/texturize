@@ -158,8 +158,8 @@ def test_scores_identity(array):
     matcher.repro_sources.from_linear(array.shape)
     matcher.compare_features_matrix(split=2)
 
-    assert pytest.approx(1.0) == matcher.repro_target.scores.min()
-    assert pytest.approx(1.0) == matcher.repro_sources.scores.min()
+    assert pytest.approx(1.0, abs=1e-6) == matcher.repro_target.scores.min()
+    assert pytest.approx(1.0, abs=1e-6) == matcher.repro_sources.scores.min()
 
 
 @given(
