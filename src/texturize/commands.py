@@ -33,7 +33,7 @@ def prepare_default_critics(app, scale, texture, critics):
     ).to(device=app.device, dtype=app.precision)
 
     layers = [c.get_layers() for c in critics]
-    feats = dict(app.encoder.extract(texture_cur, layers))
+    feats = dict(app.encoder.extract_all(texture_cur, layers))
     for critic in critics:
         critic.from_features(feats)
     app.log.debug("<- source:", tuple(texture_cur.shape[2:]), "\n")
@@ -224,7 +224,7 @@ class Mashup(Command):
         ]
 
         # Combine all features into a single dictionary.
-        features = [dict(app.encoder.extract(f, all_layers)) for f in sources]
+        features = [dict(app.encoder.extract_all(f, all_layers)) for f in sources]
         features = dict(zip(features[0].keys(), zip(*[f.values() for f in features])))
 
         # Initialize the critics from the combined dictionary.

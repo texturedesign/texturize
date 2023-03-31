@@ -5,7 +5,7 @@ import math
 
 import torch
 import torch.nn.functional as F
-from creativeai.image.encoders import models
+from creativeai.vision import encoders
 
 from .critics import GramMatrixCritic, PatchCritic, HistogramCritic
 from .app import TextureSynthesizer, Application, Result
@@ -37,7 +37,7 @@ def process_iterations(
     app = Application(log, device, precision)
 
     # Encoder used by all the critics at every octave.
-    encoder = getattr(models, model)(pretrained=True, pool_type=torch.nn.AvgPool2d)
+    encoder = getattr(encoders, model + 'Encoder')(pretrained=True, pool_type=torch.nn.AvgPool2d)
     encoder = encoder.to(device=app.device, dtype=app.precision)
     app.encoder = encoder
     app.layers = layers
