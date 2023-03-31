@@ -36,7 +36,7 @@ def size(request):
     if request.config.getoption("--suite") == "full":
         return (272, 240)
     if request.config.getoption("--suite") == "fast":
-        return (96, 88)
+        return (96, 80)
     assert False, "Invalid test suite specified."
 
 

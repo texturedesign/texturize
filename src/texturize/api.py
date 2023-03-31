@@ -19,7 +19,8 @@ def process_iterations(
     size: tuple = None,
     octaves: int = None,
     variations: int = 1,
-    quality: float = 2,
+    quality: float = None,
+    iterations: float = None,
     model: str = "VGG11",
     layers: str = None,
     mode: str = None,
@@ -65,10 +66,12 @@ def process_iterations(
                 critics = cmd.prepare_critics(app, scale)
                 seed = cmd.prepare_seed_tensor(app, result_size, previous=seed)
 
-                for result in app.process_octave(
+                for i, result in enumerate(app.process_octave(
                     seed, app.encoder, critics, octave, scale, quality=quality,
-                ):
+                )):
                     yield result
+                    if iterations is not None and i > iterations:
+                        break
 
                 seed = result.images
                 del result

@@ -23,10 +23,10 @@ __all__ = ["Application", "Result", "TextureSynthesizer"]
 
 
 class TextureSynthesizer:
-    def __init__(self, device, encoder, lr, quality):
+    def __init__(self, device, encoder, lr, quality=None):
         self.device = device
         self.encoder = encoder
-        self.quality = quality
+        self.quality = quality or 1
         self.learning_rate = lr
 
     def run(self, progress, seed_img, *args):
