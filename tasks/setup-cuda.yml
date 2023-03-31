@@ -3,8 +3,8 @@ channels:
   - defaults
 dependencies:
   - pip
-  - pytorch=1.5.1
-  - torchvision=0.6.1
+  - pytorch=2.0.0
+  - torchvision=0.15.0
   - pip:
     - invoke
     - poetry
