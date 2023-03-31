@@ -26,8 +26,8 @@ building ``texturize`` as the highest-quality open source library available!
 The examples are available as notebooks, and you can run them directly in-browser
 thanks to Jupyter and Google Colab:
 
-* **Gravel** — `online demo <https://colab.research.google.com/github/photogeniq/texturize/blob/master/examples/Demo_Gravel.ipynb>`__ and `source notebook <https://github.com/photogeniq/texturize/blob/master/examples/Demo_Gravel.ipynb>`__.
-* **Grass** — `online demo <https://colab.research.google.com/github/photogeniq/texturize/blob/master/examples/Demo_Grass.ipynb>`__ and `source notebook <https://github.com/photogeniq/texturize/blob/master/examples/Demo_Grass.ipynb>`__.
+* **Gravel** — `online demo <https://colab.research.google.com/github/texturedesign/texturize/blob/master/examples/Demo_Gravel.ipynb>`__ and `source notebook <https://github.com/texturedesign/texturize/blob/master/examples/Demo_Gravel.ipynb>`__.
+* **Grass** — `online demo <https://colab.research.google.com/github/texturedesign/texturize/blob/master/examples/Demo_Grass.ipynb>`__ and `source notebook <https://github.com/texturedesign/texturize/blob/master/examples/Demo_Grass.ipynb>`__.
 
 These demo materials are released under the Creative Commons `BY-NC-SA license <https://creativecommons.org/licenses/by-nc-sa/3.0/>`_, including the text, images and code.
 
@@ -79,7 +79,7 @@ Remix Examples
 
 .. Remix Online Tool
 .. ~~~~~~~~~~~~~~~~~
-.. * `colab notebook <https://colab.research.google.com/github/photogeniq/texturize/blob/master/examples/Tool_Remix.ipynb>`__
+.. * `colab notebook <https://colab.research.google.com/github/texturedesign/texturize/blob/master/examples/Tool_Remix.ipynb>`__
 
 ----
 
@@ -129,7 +129,7 @@ Remake Examples
 
 .. Remake Online Tool
 .. ~~~~~~~~~~~~~~~~~~
-.. * `colab notebook <https://colab.research.google.com/github/photogeniq/texturize/blob/master/examples/Tool_Remake.ipynb>`__
+.. * `colab notebook <https://colab.research.google.com/github/texturedesign/texturize/blob/master/examples/Tool_Remake.ipynb>`__
 
 ----
 
@@ -181,7 +181,7 @@ Mashup Examples
 
 .. Mashup Online Tool
 .. ~~~~~~~~~~~~~~~~~~
-.. * `colab notebook <https://colab.research.google.com/github/photogeniq/texturize/blob/master/examples/Tool_Mashup.ipynb>`__
+.. * `colab notebook <https://colab.research.google.com/github/texturedesign/texturize/blob/master/examples/Tool_Mashup.ipynb>`__
 
 ----
 
@@ -231,7 +231,7 @@ Enhance Examples
 
 .. Enhance Online Tool
 .. ~~~~~~~~~~~~~~~~~~~
-.. * `colab notebook <https://colab.research.google.com/github/photogeniq/texturize/blob/master/examples/Tool_Enhance.ipynb>`__
+.. * `colab notebook <https://colab.research.google.com/github/texturedesign/texturize/blob/master/examples/Tool_Enhance.ipynb>`__
 
 ----
 
@@ -283,10 +283,10 @@ your machine, there are setup scripts you can download directly from the reposit
 .. code-block:: bash
 
     # a) Use this if you have an *Nvidia GPU only*.
-    curl -s https://raw.githubusercontent.com/photogeniq/texturize/master/tasks/setup-cuda.yml -o setup.yml
+    curl -s https://raw.githubusercontent.com/texturedesign/texturize/master/tasks/setup-cuda.yml -o setup.yml
 
     # b) Fallback if you just want to run on CPU.
-    curl -s https://raw.githubusercontent.com/photogeniq/texturize/master/tasks/setup-cpu.yml -o setup.yml
+    curl -s https://raw.githubusercontent.com/texturedesign/texturize/master/tasks/setup-cpu.yml -o setup.yml
 
 Now you can create a fresh Conda environment for texture synthesis:
 
@@ -324,7 +324,7 @@ repository to your local disk:
 
 .. code-block:: bash
 
-    git clone https://github.com/photogeniq/texturize.git
+    git clone https://github.com/texturedesign/texturize.git
 
 We also recommend using `Miniconda 3.x <https://docs.conda.io/en/latest/miniconda.html>`__
 for development.  You can set up a new virtual environment called ``myenv`` by running
@@ -366,10 +366,10 @@ Use ``conda env remove -n myenv`` to remove the virtual environment once you are
     :target: https://docs.conda.io/en/latest/miniconda.html
 
 .. |License Type| image:: https://img.shields.io/badge/license-AGPL-blue.svg
-    :target: https://github.com/photogeniq/texturize/blob/master/LICENSE
+    :target: https://github.com/texturedesign/texturize/blob/master/LICENSE
 
-.. |Project Stars| image:: https://img.shields.io/github/stars/photogeniq/texturize.svg?color=turquoise
-    :target: https://github.com/photogeniq/texturize/stargazers
+.. |Project Stars| image:: https://img.shields.io/github/stars/texturedesign/texturize.svg?color=turquoise
+    :target: https://github.com/texturedesign/texturize/stargazers
 
 .. |Package Version| image:: https://img.shields.io/pypi/v/texturize?color=turquoise
     :alt: PyPI - Version
@@ -377,8 +377,8 @@ Use ``conda env remove -n myenv`` to remove the virtual environment once you are
 
 .. |Project Status| image:: https://img.shields.io/pypi/status/texturize?color=#00ff00
     :alt: PyPI - Status
-    :target: https://github.com/photogeniq/texturize
+    :target: https://github.com/texturedesign/texturize
 
-.. |Build Status| image:: https://img.shields.io/github/workflow/status/photogeniq/texturize/build
+.. |Build Status| image:: https://img.shields.io/github/actions/workflow/status/texturedesign/texturize/python-package.yml
     :alt: GitHub Workflow Status
-    :target: https://github.com/photogeniq/texturize/actions?query=workflow%3Abuild
+    :target: https://github.com/texturedesign/texturize/actions/workflows/python-package.yml
