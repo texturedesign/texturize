@@ -18,7 +18,7 @@ packages = [
 texturize = 'texturize.__main__:main'
 
 [tool.poetry.dependencies]
-python = "^3.6"
+python = "^3.7"
 creativeai = "^0.2.1"
 docopt = "^0.6.2"
 progressbar2 = "^4.2.0"
