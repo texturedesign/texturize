@@ -60,10 +60,10 @@ def renormalize(origin, target):
     return result.clamp(0.0, 1.0)
 
 
-def upscale(image, size):
-    return F.interpolate(image, size=size, mode="bicubic", align_corners=False).clamp(
-        0.0, 1.0
-    )
+def upscale(features, size):
+    features = F.pad(features, pad=(0, 1, 0, 1), mode='circular')
+    features = F.interpolate(features, (size[0]+1, size[1]+1), mode='bilinear', align_corners=True)
+    return features[:, :, 0:-1, 0:-1]
 
 
 def downscale(image, size):
