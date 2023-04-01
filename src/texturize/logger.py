@@ -70,6 +70,9 @@ class ConsoleLog:
     def warn(self, *args):
         print(ansi.YELLOW + "".join(args) + ansi.ENDC)
 
+    def error(self, *args):
+        print(ansi.PINK + "".join(args) + ansi.ENDC)
+
 
 class NotebookLog:
     class ProgressBar:

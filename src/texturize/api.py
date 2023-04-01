@@ -1,14 +1,11 @@
 # texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
-import os
 import math
 
 import torch
-import torch.nn.functional as F
 from creativeai.vision import encoders
 
-from .critics import GramMatrixCritic, PatchCritic, HistogramCritic
-from .app import TextureSynthesizer, Application, Result
+from .app import Application, Result
 from .io import *
 
 
@@ -80,6 +77,8 @@ def process_iterations(
             except RuntimeError as e:
                 if "CUDA out of memory." not in str(e):
                     raise
+                app.log.error(f"ERROR: Out of memory at octave {octave}.")
+                app.log.debug(e)
 
                 import gc; gc.collect
                 torch.cuda.empty_cache()
