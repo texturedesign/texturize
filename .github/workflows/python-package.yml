@@ -16,8 +16,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
-        python: [3.6, 3.9]
+        os: [ubuntu-latest]
+        python: ['3.6', '3.7', '3.8', '3.9', '3.10']
+        include:
+          - os: windows-latest
+            python: '3.6'
+          - os: macOS-latest
+            python: '3.6'
+          - os: windows-latest
+            python: '3.10'
+          - os: macOS-latest
+            python: '3.10'
     name: Python ${{ matrix.python }} ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -27,6 +36,7 @@ jobs:
         uses: s-weigand/setup-conda@v1
         with:
           activate-conda: true
+          update-conda: true
           python-version: ${{ matrix.python }}
           conda-channels: pytorch
       - name: Install Requirements
