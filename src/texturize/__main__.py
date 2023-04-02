@@ -16,7 +16,7 @@ Usage:
 
 Examples:
     texturize remix samples/grass.webp --size=1440x960 --output=result.png
-    texturize remix samples/gravel.png --quality=1
+    texturize remix samples/gravel.png --iterations=100
     texturize remix samples/sand.tiff  --output=tmp/{source}-{octave}.webp
     texturize remix samples/brick.jpg  --device=cpu
 
@@ -34,7 +34,7 @@ Options:
     --mode=MODE             Either "patch" or "gram" to manually specify critics.
     --octaves=O             Number of octaves to process. Defaults to 5 for 512x512, or
                             4 for 256x256 equivalent pixel count.
-    --quality=Q             Quality for optimization, higher is better. [default: 4]
+    --iterations=I          Iterations for optimization, higher is better. [default: 200]
 
     --model=MODEL           Name of the convolution network to use. [default: VGG11]
     --layers=LAYERS         Comma-separated list of layers.
@@ -78,6 +78,9 @@ def validate(config):
     def split_floats(text: str):
         return tuple(map(float, text.split(",")))
 
+    def split_ints(text: str):
+        return tuple(map(int, text.split(",")))
+
     sch = Schema(
         {
             "SOURCE": [str],
@@ -90,7 +93,7 @@ def validate(config):
             "seed": Or(None, Use(int)),
             "mode": Or(None, "patch", "gram", "hist"),
             "octaves": Or(None, Use(int)),
-            "quality": Use(float),
+            "iterations": Use(split_ints),
             "model": Or("VGG11", "VGG13", "VGG16", "VGG19"),
             "layers": Or(None, Use(split_strings)),
             "device": Or(None, "cpu", "cuda"),

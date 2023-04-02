@@ -16,8 +16,7 @@ def process_iterations(
     size: tuple = None,
     octaves: int = None,
     variations: int = 1,
-    quality: float = None,
-    iterations: float = None,
+    iterations: tuple = None,
     model: str = "VGG11",
     layers: str = None,
     mode: str = None,
@@ -30,6 +29,7 @@ def process_iterations(
     # Configure the default options dynamically, unless overriden.
     factor = math.sqrt((size[0] * size[1]) / (32 ** 2))
     octaves = octaves or getattr(cmd, "octaves", int(math.log(factor, 2) + 1.0))
+    iterations = iterations if isinstance(iterations, tuple) else (iterations,)
 
     # Setup the application to use throughout the synthesis.
     app = Application(log, device, precision)
@@ -63,12 +63,11 @@ def process_iterations(
                 critics = cmd.prepare_critics(app, scale)
                 seed = cmd.prepare_seed_tensor(app, result_size, previous=seed)
 
+                its = iterations[-1] if octave >= len(iterations) else iterations[octave]
                 for i, result in enumerate(app.process_octave(
-                    seed, app.encoder, critics, octave, scale, quality=quality,
+                    seed, app.encoder, critics, octave, scale, iterations=its,
                 )):
                     yield result
-                    if iterations is not None and i > iterations:
-                        break
 
                 seed = result.images
                 del result
