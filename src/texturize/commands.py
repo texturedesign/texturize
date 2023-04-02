@@ -80,7 +80,7 @@ def random_normal(size, mean):
 
 class Remix(Command):
     def __init__(self, source):
-        self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
+        self.source = load_tensor_from_image(source, device="cpu")
 
     def prepare_critics(self, app, scale):
         critics = create_default_critics(app.mode or "hist", app.layers)
@@ -102,8 +102,8 @@ class Remix(Command):
 class Enhance(Command):
     def __init__(self, target, source, zoom=1):
         self.octaves = int(math.log(zoom, 2) + 1.0)
-        self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
-        self.target = load_tensor_from_image(target.convert("RGB"), device="cpu")
+        self.source = load_tensor_from_image(source, device="cpu")
+        self.target = load_tensor_from_image(target, device="cpu")
 
     def prepare_critics(self, app, scale):
         critics = create_default_critics(app.mode or "hist", app.layers)
@@ -120,8 +120,8 @@ class Enhance(Command):
 
 class Remake(Command):
     def __init__(self, target, source, weights=[1.0]):
-        self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
-        self.target = load_tensor_from_image(target.convert("RGB"), device="cpu")
+        self.source = load_tensor_from_image(source, device="cpu")
+        self.target = load_tensor_from_image(target, device="cpu")
         self.weights = torch.tensor(weights, dtype=torch.float32).view(-1, 1, 1, 1)
 
     def prepare_critics(self, app, scale):
@@ -144,7 +144,7 @@ class Remake(Command):
 class Repair(Command):
     def __init__(self, target, source):
         assert target.mode == "RGBA"
-        self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
+        self.source = load_tensor_from_image(source, device="cpu")
         self.target = load_tensor_from_image(target.convert("RGBA"), device="cpu")
 
     def prepare_critics(self, app, scale):
@@ -174,8 +174,8 @@ class Repair(Command):
 class Expand(Command):
     def __init__(self, target, source, factor=None):
         self.factor = factor or (1.0, 1.0)
-        self.source = load_tensor_from_image(source.convert("RGB"), device="cpu")
-        self.target = load_tensor_from_image(target.convert("RGB"), device="cpu")
+        self.source = load_tensor_from_image(source, device="cpu")
+        self.target = load_tensor_from_image(target, device="cpu")
 
     def prepare_critics(self, app, scale):
         critics = create_default_critics(app.mode or "patch", app.layers)
@@ -209,7 +209,7 @@ class Expand(Command):
 class Mashup(Command):
     def __init__(self, sources):
         self.sources = [
-            load_tensor_from_image(s.convert("RGB"), device="cpu") for s in sources
+            load_tensor_from_image(s, device="cpu") for s in sources
         ]
 
     def prepare_critics(self, app, scale):

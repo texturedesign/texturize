@@ -1,9 +1,10 @@
 # texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
+import glob
 import time
 import random
 import urllib
-import asyncio
+import difflib
 from io import BytesIO
 
 import PIL.Image
@@ -11,9 +12,28 @@ import torch
 import torchvision.transforms.functional as V
 
 
-def load_tensor_from_file(filename, device, mode=None):
-    image = load_image_from_file(filename, mode)
-    return load_tensor_from_image(image, device)
+def load_tensor_from_files(glob_pattern, device='cpu', mode=None) -> tuple:
+    arrays, props = [], []
+    for filename in sorted(glob.glob(glob_pattern)):
+        img = load_image_from_file(filename, mode)
+        arr = load_tensor_from_image(img, device)
+        arrays.append(arr)
+
+        prop = ''.join([s[2] for s in difflib.ndiff(glob_pattern, filename) if s[0]=='+'])
+        props.append(prop + ":" + str(arr.shape[1]))
+
+    assert all(a.shape[2:] == arrays[0].shape[2:] for a in arrays[1:])
+    return torch.cat(arrays, dim=1), props
+
+
+def save_tensor_to_files(images, filename, props):
+    c = 0
+    for prop in props:
+        suffix, i = prop.split(":")
+        i = int(i)
+        img = images[:, c:c+i]
+        save_tensor_to_file(img, filename.replace('{prop}', suffix), mode="RGB" if i==3 else "L")
+        c += i
 
 
 def load_image_from_file(filename, mode=None):
@@ -25,7 +45,18 @@ def load_image_from_file(filename, mode=None):
 
 
 def load_tensor_from_image(image, device, dtype=torch.float32):
-    return V.to_tensor(image).unsqueeze(0).to(device, dtype)
+    # NOTE: torchvision incorrectly assumes that I;16 means signed, but
+    # Pillow docs say unsigned.
+    if isinstance(image, PIL.Image.Image) and image.mode == "I;16":
+        import numpy
+        arr = numpy.frombuffer(image.tobytes(), dtype=numpy.uint16)
+        arr = arr.reshape((image.height, image.width))
+        assert arr.min() >= 0 and arr.max() < 65536
+        image = arr.astype(numpy.float32) / 65536.0
+
+    if not isinstance(image, torch.Tensor):
+        return V.to_tensor(image).unsqueeze(0).to(device, dtype)
+    return image
 
 
 def load_image_from_url(url, mode="RGB"):
@@ -42,7 +73,7 @@ def random_crop(image, size):
 
 def save_tensor_to_file(tensor, filename, mode="RGB"):
     assert tensor.shape[0] == 1
-    img = save_tensor_to_images(tensor)
+    img = save_tensor_to_images(tensor, mode=mode)
     img[0].save(filename)
 
 

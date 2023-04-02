@@ -128,42 +128,41 @@ def main():
         return
 
     # Scan all the files based on the patterns specified.
-    files = itertools.chain.from_iterable(glob.glob(s) for s in sources)
-    for filename in files:
+    for filename in sources:
         # If there's a random seed, use the same for all images.
         if seed is not None:
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
 
         # Load the images necessary.
-        source_img = io.load_image_from_file(filename)
-        target_img = io.load_image_from_file(target) if target else None
+        source_arr, source_suffix = io.load_tensor_from_files(filename)
+        target_arr = io.load_tensor_from_files(target) if target else None
 
         # Setup the command specified by user.
         if command == "remix":
-            cmd = commands.Remix(source_img)
+            cmd = commands.Remix(source_arr)
         if command == "enhance":
-            cmd = commands.Enhance(target_img, source_img, zoom=zoom)
+            cmd = commands.Enhance(target_arr, source_arr, zoom=zoom)
             config["octaves"] = cmd.octaves
             # Calculate the size based on the specified zoom.
-            config["size"] = (target_img.size[0] * zoom, target_img.size[1] * zoom)
+            config["size"] = (target_arr.size[0] * zoom, target_arr.size[1] * zoom)
         if command == "expand":
             # Calculate the factor based on the specified size.
             factor = (
-                target_img.size[0] / config["size"][0],
-                target_img.size[1] / config["size"][1],
+                target_arr.size[0] / config["size"][0],
+                target_arr.size[1] / config["size"][1],
             )
-            cmd = commands.Expand(target_img, source_img, factor=factor)
+            cmd = commands.Expand(target_arr, source_arr, factor=factor)
         if command == "remake":
-            cmd = commands.Remake(target_img, source_img, weights=weights)
+            cmd = commands.Remake(target_arr, source_arr, weights=weights)
             config["octaves"] = 1
-            config["size"] = target_img.size
+            config["size"] = target_arr.size
         if command == "mashup":
-            cmd = commands.Mashup([source_img, target_img])
+            cmd = commands.Mashup([source_arr, target_arr])
         if command == "repair":
-            cmd = commands.Repair(target_img, source_img)
+            cmd = commands.Repair(target_arr, source_arr)
             config["octaves"] = 3
-            config["size"] = target_img.size
+            config["size"] = target_arr.size
 
         # Process the files one by one, each may have multiple variations.
         try:
