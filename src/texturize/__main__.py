@@ -24,7 +24,7 @@ Options:
     SOURCE                  Path to source image to use as texture.
     -s WxH, --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
     -o FILE, --output=FILE  Filename for saving the result, includes format variables.
-                            [default: {command}_{source}{variation}.png]
+                            [default: {command}_{source}{variation}{prop}.png]
 
     --weights=WEIGHTS       Comma-separated list of blend weights. [default: 1.0]
     --zoom=ZOOM             Integer zoom factor for enhancing. [default: 2]
@@ -54,8 +54,6 @@ Options:
 #
 
 import os
-import glob
-import itertools
 
 import docopt
 from schema import Schema, Use, And, Or
@@ -135,7 +133,7 @@ def main():
             torch.cuda.manual_seed(seed)
 
         # Load the images necessary.
-        source_arr, source_suffix = io.load_tensor_from_files(filename)
+        source_arr, source_props = io.load_tensor_from_files(filename)
         target_arr = io.load_tensor_from_files(target) if target else None
 
         # Setup the command specified by user.
@@ -174,6 +172,7 @@ def main():
                 config["output"] = config["output"].replace(
                     "{target}", os.path.splitext(os.path.basename(target))[0]
                 )
+            config["properties"] = source_props
 
             result, filenames = api.process_single_command(cmd, log, **config)
             log.notice(ansi.PINK + "\n=> result:", filenames, ansi.ENDC)
