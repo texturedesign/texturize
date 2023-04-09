@@ -1,7 +1,7 @@
 # texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
 import itertools
-import collections
+import dataclasses
 
 import torch
 import torch.nn.functional as F
@@ -80,9 +80,19 @@ class TextureSynthesizer:
             yield i, loss, opt.lr, opt.retries
 
 
-Result = collections.namedtuple(
-    "Result", ["images", "octave", "scale", "iteration", "loss", "rate", "retries"]
-)
+@dataclasses.dataclass
+class Result:
+    tensor: torch.Tensor
+    octave: int
+    scale: int
+    iteration: int
+    loss: float
+    rate: float
+    retries: int
+
+    @property
+    def images(self):
+        return save_tensor_to_images(self.tensor)
 
 
 class Application:

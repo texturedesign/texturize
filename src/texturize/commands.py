@@ -133,11 +133,11 @@ class Remake(Command):
         return renormalize(seed, self.source.to(app.device)).to(dtype=app.precision)
 
     def finalize_octave(self, result):
-        device = result.images.device
+        device = result.tensor.device
         weights = self.weights.to(device)
-        images = result.images.expand(len(self.weights), -1, -1, -1)
+        tensor = result.tensor.expand(len(self.weights), -1, -1, -1)
         target = self.target.to(device).expand(len(self.weights), -1, -1, -1)
-        return Result(images * (weights + 0.0) + (1.0 - weights) * target, *result[1:])
+        return Result(tensor * (weights + 0.0) + (1.0 - weights) * target, *result[1:])
 
 
 class Repair(Command):

@@ -12,11 +12,12 @@ from .io import *
 @torch.no_grad()
 def process_iterations(
     cmd,
+    *,
+    size: tuple,
     log: object = None,
-    size: tuple = None,
     octaves: int = None,
     variations: int = 1,
-    iterations: tuple = None,
+    iterations: tuple = (400,),
     model: str = "VGG11",
     layers: str = None,
     mode: str = None,
@@ -69,7 +70,7 @@ def process_iterations(
                 )):
                     yield result
 
-                seed = result.images
+                seed = result.tensor
                 del result
                 break
 
@@ -92,7 +93,7 @@ def process_octaves(cmd, **kwargs):
             continue
 
         yield Result(
-            r.images, r.octave, r.scale, -r.iteration, r.loss, r.rate, r.retries
+            r.tensor, r.octave, r.scale, -r.iteration, r.loss, r.rate, r.retries
         )
 
 
@@ -100,17 +101,16 @@ def process_single_command(cmd, log: object, output: str = None, properties: lis
     for result in process_octaves(cmd, log=log, **config):
         result = cmd.finalize_octave(result)
 
-        # images = save_tensor_to_images(result.images)
         filenames = []
-        for i in range(result.images.shape[0]):
+        for i in range(result.tensor.shape[0]):
             from .io import save_tensor_to_files
             filename = output.format(
                 octave=result.octave,
-                variation=f"_{i}" if result.images.shape[0] > 1 else "",
+                variation=f"_{i}" if result.tensor.shape[0] > 1 else "",
                 command=cmd.__class__.__name__.lower(),
                 prop="_{prop}" if len(properties) else "",
             )
-            save_tensor_to_files(result.images[i:i+1], filename, properties)
+            save_tensor_to_files(result.tensor[i:i+1], filename, properties)
             log.debug("\n=> output:", filename)
             filenames.append(filename)
 
