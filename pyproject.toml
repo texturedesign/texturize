@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "texturize"
 description = "🤖🖌️ Generate new photo-realistic textures similar to a source image."
-version = "0.13-dev"
+version = "0.14-dev"
 authors = ["Alex J. Champandard <445208+alexjc@users.noreply.github.com>"]
 readme = "docs/pypi.rst"
 repository = "https://github.com/photogeniq/texturize"
