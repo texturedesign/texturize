@@ -137,9 +137,9 @@ def show_result_in_notebook(throttle=None, title=None):
             self.total_sent = 0
 
         def update(self, result):
-            assert len(result.images) == 1, "Only one image supported."
+            assert len(result.tensor) == 1, "Only one image supported."
 
-            for out in save_tensor_to_images(result.images[:, 0:3]):
+            for out in save_tensor_to_images(result.tensor[:, 0:3]):
                 elapsed = time.time() - self.start_time
                 last, first = bool(result.iteration < 0), bool(result.iteration == 0)
                 self.html.set_trait(
