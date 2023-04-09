@@ -61,15 +61,15 @@ Remix Library API
     from texturize import api, commands, io
 
     # The input could be any PIL Image in RGB mode.
-    image = io.load_image_from_file("input.png")
+    image = io.load_image_from_file("examples/dirt1.webp")
 
     # Coarse-to-fine synthesis runs one octave at a time.
     remix = commands.Remix(image)
-    for result in api.process_octaves(remix, octaves=5):
+    for result in api.process_octaves(remix, size=(512,512), octaves=5):
         pass
 
     # The output can be saved in any PIL-supported format.
-    result.image.save("output.png")
+    result.images[0].save("output.png")
 
 
 Remix Examples
@@ -110,16 +110,16 @@ Remake Library API
     from texturize import api, commands
 
     # The input could be any PIL Image in RGB mode.
-    target = io.load_image_from_file("input1.png")
-    source = io.load_image_from_file("input2.png")
+    target = io.load_image_from_file("examples/dirt1.webp")
+    source = io.load_image_from_file("examples/dirt2.webp")
 
     # Only process one octave to retain photo-realistic output.
     remake = commands.Remake(target, source)
-    for result in api.process_octaves(remake, octaves=1):
+    for result in api.process_octaves(remake, size=(512,512), octaves=1):
         pass
 
     # The output can be saved in any PIL-supported format.
-    result.image.save("output.png")
+    result.images[0].save("output.png")
 
 
 Remake Examples
@@ -161,17 +161,17 @@ Mashup Library API
 
     # The input could be any PIL Image in RGB mode.
     sources = [
-        io.load_image_from_file("input1.png"),
-        io.load_image_from_file("input2.png"),
+        io.load_image_from_file("examples/dirt1.webp"),
+        io.load_image_from_file("examples/dirt2.webp"),
     ]
 
     # Only process one octave to retain photo-realistic output.
     mashup = commands.Mashup(sources)
-    for result in api.process_octaves(mashup, octaves=5):
+    for result in api.process_octaves(mashup, size=(512,512), octaves=5):
         pass
 
     # The output can be saved in any PIL-supported format.
-    result.image.save("output.png")
+    result.images[0].save("output.png")
 
 
 Mashup Examples
@@ -212,16 +212,16 @@ Enhance Library API
     from texturize import api, commands
 
     # The input could be any PIL Image in RGB mode.
-    target = io.load_image_from_file("input1.png")
-    source = io.load_image_from_file("input2.png")
+    target = io.load_image_from_file("examples/dirt1.webp")
+    source = io.load_image_from_file("examples/dirt2.webp")
 
     # Only process one octave to retain photo-realistic output.
     enhance = commands.Enhance(target, source, zoom=2)
-    for result in api.process_octaves(enhance, octaves=2):
+    for result in api.process_octaves(enhance, size=(512,512), octaves=2):
         pass
 
     # The output can be saved in any PIL-supported format.
-    result.image.save("output.png")
+    result.images[0].save("output.png")
 
 
 Enhance Examples
@@ -277,7 +277,7 @@ Latest Release [recommended]
 ----------------------------
 
 We suggest using `Miniconda 3.x <https://docs.conda.io/en/latest/miniconda.html>`__ to
-manage your Python environments.  Once the ``conda`` command-line tool is installed on
+manage your Python environments.  Once the ``conda`` command-line size is installed on
 your machine, there are setup scripts you can download directly from the repository:
 
 .. code-block:: bash
