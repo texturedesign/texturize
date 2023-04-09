@@ -112,7 +112,7 @@ class HistogramCritic:
         data = features[self.layer]
         assert data.ndim == 4 and data.shape[0] == 1
 
-        conv_L1 = torch.nn.Conv2d(data.shape[1], 128, kernel_size=(3, 3), dilation=1, bias=False, padding=1, padding_mode='circular').to(self.g.device)
+        conv_L1 = torch.nn.Conv2d(data.shape[1], 128, kernel_size=(1, 1), dilation=1, bias=False, padding=0).to(self.g.device)
         torch.nn.init.orthogonal_(conv_L1.weight)
 
         with torch.no_grad():

@@ -97,13 +97,14 @@ class SolverSGD:
     """Encapsulate the SGD or Adam optimizers from PyTorch with a standard interface.
     """
 
-    def __init__(self, objective, image, opt_class="SGD", lr=1.0):
+    def __init__(self, objective, image, opt_class="Adam", lr=1.0):
         self.objective = objective
         self.image = image
         self.lr = lr
         self.retries = 0
 
-        self.optimizer = getattr(torch.optim, opt_class)([image], lr=lr)
+        opt_class = getattr(torch.optim, opt_class)
+        self.optimizer = opt_class([image], lr=lr)
         self.iteration = 1
 
     def step(self):
