@@ -1,5 +1,6 @@
 # texturize — Copyright (c) 2020, Novelty Factory KG.  See LICENSE for details.
 
+import math
 import itertools
 
 import torch
@@ -71,6 +72,14 @@ class GramMatrixCritic:
         return result / len(features[self.pair[0]])
 
 
+def sample(arr, count):
+    """Deterministically sample N entries from an array."""
+    if arr.shape[2] < count:
+        f = int(math.ceil(count / arr.shape[2]))
+        arr = torch.cat([arr] * f, dim=2)
+    return arr[:, :, :count]
+
+
 class HistogramCritic:
     """
     This critic uses the Sliced Wasserstein Distance of the features to approximate the
@@ -92,26 +101,30 @@ class HistogramCritic:
         return {self.layer}
 
     def from_features(self, features):
-        self.features = features[self.layer]
+        data = features[self.layer]
+        self.gm = data.mean(dim=(2,3), keepdim=True)
+        self.g = (data - self.gm) * 2.0
 
-    def random_directions(self, count, device):
-        directions = torch.empty((count, count, 1, 1), device=device).uniform_(
-            -1.0, +1.0
-        )
-        return directions / torch.norm(directions, dim=1, keepdim=True)
-
-    def sorted_projection(self, directions, features):
-        proj_t = torch.sum(features * directions, dim=1).flatten(1)
-        return torch.sort(proj_t, dim=1).values
+    def sorted_projection(self, proj_t):
+        return torch.sort(proj_t, dim=2).values
 
     def evaluate(self, features):
-        f = features[self.layer]
-        assert f.shape[0] == 1
+        data = features[self.layer]
+        assert data.ndim == 4 and data.shape[0] == 1
+
+        conv_L1 = torch.nn.Conv2d(data.shape[1], 128, kernel_size=(3, 3), dilation=1, bias=False, padding=1, padding_mode='circular').to(self.g.device)
+        torch.nn.init.orthogonal_(conv_L1.weight)
 
         with torch.no_grad():
-            directions = self.random_directions(f.shape[1], f.device)
-            source = self.sorted_projection(directions, self.features)
-        current = self.sorted_projection(directions, f)
+            conv_L1.padding_mode = 'reflect'
+
+            count_L1 = data.shape[2] * data.shape[3]
+            patches_L1 = conv_L1(self.g)
+            source = self.sorted_projection(sample(patches_L1.flatten(2), count_L1))
+
+        conv_L1.padding_mode = 'circular'
+        current = self.sorted_projection(conv_L1((data - self.gm) * 2.0).flatten(2))
+        assert source.shape == current.shape
 
         yield F.mse_loss(current, source)
 

@@ -34,7 +34,6 @@ def prepare_default_critics(app, scale, texture, critics):
 
     layers = [c.get_layers() for c in critics]
     feats = dict(app.encoder.extract_all(texture_cur, layers))
-    feats['input'] = texture_cur
 
     for critic in critics:
         critic.from_features(feats)

@@ -153,7 +153,6 @@ class MultiCriticObjective:
         # Extract features from image.
         layers = [c.get_layers() for c in self.critics]
         feats = dict(self.encoder.extract_all(image, layers))
-        feats['input'] = image
 
         for critic in self.critics:
             critic.on_start()
@@ -198,7 +197,6 @@ class SequentialCriticObjective:
             origin_feats = dict(
                 self.encoder.extract_all(image, critic.get_layers(), as_checkpoints=True)
             )
-            origin_feats['input'] = image
 
             detach_feats = {
                 k: f.detach().requires_grad_(True) for k, f in origin_feats.items()
