@@ -25,6 +25,7 @@ Options:
     -s WxH, --size=WxH      Output resolution as WIDTHxHEIGHT. [default: 640x480]
     -o FILE, --output=FILE  Filename for saving the result, includes format variables.
                             [default: {command}_{source}{variation}{prop}.png]
+    --intact                Keep the source image at the original size.
 
     --weights=WEIGHTS       Comma-separated list of blend weights. [default: 1.0]
     --zoom=ZOOM             Integer zoom factor for enhancing. [default: 2]
@@ -54,6 +55,7 @@ Options:
 #
 
 import os
+import math
 
 import docopt
 from schema import Schema, Use, And, Or
@@ -85,6 +87,7 @@ def validate(config):
             "TARGET": Or(None, str),
             "size": And(Use(split_size), tuple),
             "output": str,
+            "intact": Use(bool),
             "weights": Use(split_floats),
             "zoom": Use(int),
             "variations": Use(int),
@@ -124,6 +127,8 @@ def main():
     if config.pop("help") is True:
         log.notice(__doc__[204:])
         return
+    
+    resize_source = not config.pop("intact")
 
     # Scan all the files based on the patterns specified.
     for filename in sources:
@@ -135,6 +140,12 @@ def main():
         # Load the images necessary.
         source_arr, source_props = io.load_tensor_from_files(filename)
         target_arr = io.load_tensor_from_files(target) if target else None
+
+        if resize_source:
+            def length(s): return math.sqrt(s[0] * s[1])
+            s = length(config["size"]) / length(source_arr.shape[2:])
+            F = torch.nn.functional
+            source_arr = F.interpolate(source_arr, scale_factor=s, mode="bilinear", antialias=True)
 
         # Setup the command specified by user.
         if command == "remix":
