@@ -2,6 +2,7 @@
 
 import glob
 import random
+import pathlib
 
 import pytest
 import PIL.Image, PIL.ImageOps
@@ -44,3 +45,28 @@ def size(request):
 def image(request, filename, size):
     img = PIL.Image.open(filename)
     return PIL.ImageOps.fit(img.convert("RGB"), size)
+
+
+def pytest_collect_file(path, parent):
+    if not path.strpath.endswith('conftest.py'):
+        return
+    
+    if parent.config.getoption('--suite') != "full":
+        return
+
+    from doctest import ELLIPSIS
+
+    from sybil import Sybil
+    import sybil.parsers.rest as SybilParsers
+    import sybil.integration.pytest as SybilTest
+
+    sybil = Sybil(
+        parsers=[
+            SybilParsers.DocTestParser(optionflags=ELLIPSIS),
+            SybilParsers.PythonCodeBlockParser(),
+        ],
+        path='.',
+        patterns=['*.rst'],
+    )
+
+    return SybilTest.SybilFile.from_parent(parent, path=pathlib.Path('README.rst'), sybil=sybil)
